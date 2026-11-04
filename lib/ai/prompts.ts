@@ -1,0 +1,2 @@
+export const HANDWRITING_TRANSCRIPTION_PROMPT =
+  "Transcribe this photo of a student's handwritten school notes exactly as written. Keep headings, numbered lists, bullet points, tables (as simple text rows), and equations (as plain text, for example x^2 + 5x + 6 = 0). Do not correct spelling or grammar and do not add explanations. If a word is unreadable write [?]. If you are unsure of a word, write your best guess as [?guess]. Return only the transcription.";

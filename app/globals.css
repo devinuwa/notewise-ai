@@ -1,0 +1,415 @@
+@import "tailwindcss";
+
+:root {
+  --green-600: #3d5f58;
+  --green-800: #2e4742;
+  --ink: #231f20;
+  --paper: #f2f2eb;
+  --page: #e4e3d8;
+  --red: #e53927;
+  --blue: #8bb2de;
+  --yellow: #f5b726;
+  --salmon: #e97b77;
+  --shadow: #671912;
+  --success: #3d5f58;
+  --muted: #3e4744;
+  --chip-idle: #d9d6cc;
+}
+
+@theme inline {
+  --color-green-600: var(--green-600);
+  --color-green-800: var(--green-800);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-page: var(--page);
+  --color-red: var(--red);
+  --color-blue: var(--blue);
+  --color-yellow: var(--yellow);
+  --color-salmon: var(--salmon);
+  --color-shadow: var(--shadow);
+  --color-success: var(--success);
+  --color-muted: var(--muted);
+  --color-chip-idle: var(--chip-idle);
+  --font-display: var(--font-archivo), var(--font-barlow), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-space), ui-monospace, monospace;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.nw-display {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 62, "wght" 850;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  word-spacing: 0.12em;
+  line-height: 0.98;
+  overflow-wrap: break-word;
+}
+
+.nw-mono {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@layer components {
+.nw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  background: var(--salmon);
+  color: var(--ink);
+  padding: 0.7rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-align: center;
+  white-space: normal;
+  max-width: 100%;
+  box-shadow: 4px 4px 0 var(--shadow);
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.3, 1.6, 0.5, 1), box-shadow 120ms ease;
+}
+
+.nw-btn-secondary {
+  background: var(--paper);
+}
+
+.nw-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--shadow);
+}
+
+.nw-btn:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--shadow);
+}
+
+.nw-btn:disabled {
+  background: var(--chip-idle);
+  color: var(--ink);
+  cursor: not-allowed;
+}
+}
+
+.nw-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  box-shadow: 6px 6px 0 var(--shadow);
+  padding: 24px;
+  min-width: 0;
+}
+
+@media (max-width: 400px) {
+  .nw-card {
+    padding: 16px;
+  }
+}
+
+.nw-page {
+  padding: 4.5rem 1rem 3rem;
+}
+
+@media (min-width: 640px) {
+  .nw-page {
+    padding: 5.5rem 1.5rem 3rem;
+  }
+}
+
+.nw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: normal;
+}
+
+.nw-input {
+  width: 100%;
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0.8rem 0.9rem;
+  font-family: var(--font-sans);
+  font-size: 18px;
+}
+
+.nw-input:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+dialog.nw-dialog {
+  width: min(28rem, calc(100% - 2rem));
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 24px;
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+dialog.nw-dialog::backdrop {
+  background: rgb(35 31 32 / 48%);
+}
+
+/* The rename dialog was stretching to the screen edges. Keep 16px of space and stay centred. */
+@media (max-width: 767px) {
+  dialog.nw-dialog.is-inset {
+    inset: 16px;
+    width: auto;
+    height: fit-content;
+    max-width: none;
+    max-height: calc(100vh - 32px);
+    margin: auto;
+  }
+}
+
+.shell-pad {
+  padding-bottom: 7rem;
+}
+
+@media (min-width: 768px) {
+  .shell-pad {
+    padding-bottom: 0;
+  }
+}
+
+.pixel-loader-row {
+  display: flex;
+}
+
+.pixel-loader-row i {
+  display: block;
+  width: var(--block, 36px);
+  height: var(--block, 36px);
+  transform: scale(0);
+  animation:
+    pixel-pop 240ms cubic-bezier(0.3, 1.6, 0.5, 1) forwards,
+    pixel-wave 1.2s ease-in-out 600ms infinite;
+  animation-delay: calc(var(--i) * 120ms), calc(600ms + var(--i) * 100ms);
+}
+
+.pixel-loader-row i:nth-child(1) {
+  --i: 0;
+  background: var(--red);
+}
+
+.pixel-loader-row i:nth-child(2) {
+  --i: 1;
+  background: var(--blue);
+}
+
+.pixel-loader-row i:nth-child(3) {
+  --i: 2;
+  background: var(--yellow);
+}
+
+.pixel-loader-row i:nth-child(4) {
+  --i: 3;
+  background: var(--salmon);
+}
+
+.pixel-loader.is-static i,
+.pixel-loader-row.is-static i {
+  animation: none;
+  transform: scale(1);
+}
+
+.pixel-loader-caption {
+  margin-top: 0.9rem;
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pixel-loader.on-paper .pixel-loader-caption {
+  color: var(--ink);
+}
+
+@keyframes pixel-pop {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes pixel-wave {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1);
+  }
+}
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: var(--green-600);
+}
+
+.splash.is-leaving {
+  animation: splash-fade 320ms ease 220ms forwards;
+  pointer-events: none;
+}
+
+.splash.is-leaving .pixel-loader-row i {
+  animation: pixel-collapse 280ms cubic-bezier(0.3, 1.6, 0.5, 1) forwards;
+}
+
+@keyframes pixel-collapse {
+  to {
+    opacity: 0;
+    transform: scaleY(0.12) scaleX(1);
+  }
+}
+
+@keyframes splash-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.pixel-stairs {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(6, 32px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pixel-stairs i {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.pixel-stairs i[data-cell="paper"] {
+  background: var(--paper);
+}
+
+.pixel-stairs i[data-cell="red"] {
+  background: var(--red);
+}
+
+.pixel-stairs-tl {
+  top: 8px;
+  left: -28px;
+  animation: stair-left 480ms steps(4, end) both;
+}
+
+.pixel-stairs-tr {
+  top: 8px;
+  right: -28px;
+  animation: stair-right 480ms steps(4, end) both;
+}
+
+@keyframes stair-left {
+  from {
+    transform: translateX(-80px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes stair-right {
+  from {
+    transform: translateX(80px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .pixel-stairs {
+    grid-template-columns: repeat(6, 18px);
+  }
+
+  .pixel-stairs i {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 80;
+  background: var(--yellow);
+  color: var(--ink);
+  padding: 0.5rem 0.8rem;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nw-btn,
+  .nw-btn:hover,
+  .nw-btn:active {
+    transition: none;
+    transform: none;
+  }
+
+  .pixel-loader-row i,
+  .splash.is-leaving .pixel-loader-row i,
+  .pixel-stairs-tl,
+  .pixel-stairs-tr {
+    animation: none;
+    transform: scale(1);
+  }
+
+  .pixel-stairs-tl,
+  .pixel-stairs-tr {
+    transform: none;
+  }
+
+  .splash.is-leaving {
+    animation: splash-fade 200ms ease forwards;
+  }
+}

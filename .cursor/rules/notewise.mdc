@@ -1,0 +1,23 @@
+---
+description: Engineering and visual rules for NoteWise AI
+alwaysApply: true
+---
+
+You are helping a secondary-school student build NoteWise AI for HIASFEST 2027.
+
+- Stack: Next.js App Router, TypeScript (strict), Tailwind, Framer Motion, Dexie, lucide-react.
+- No authentication, no accounts. Student profile is a local name stored in Dexie.
+- Only free and open-source dependencies. No paid services.
+- All AI calls go through /lib/ai/adapter.ts so providers can be swapped.
+- API keys only in server routes via env vars. Never in client code. Never commit .env.
+- Local-first: student data stays in IndexedDB. Ask before adding any server storage.
+- Mobile-first (360px width), accessible (labels, contrast, focus states), respect reduced motion.
+- Visual language: neo-brutalist pixel-block. Flat colours, 2px ink borders, hard offset shadows (no blur), Space Mono for labels and buttons, Archivo (narrow, heavy) for headlines, Inter for body.
+- Colour, font, and layout tokens live in app/globals.css and BUILD_BRIEF.md section 3. Do not restore the retired rounded cream theme.
+- Every async wait uses PixelLoader with a mono caption.
+- All motion must respect prefers-reduced-motion. Never leave content at opacity 0 when motion is reduced.
+- Keep components small, add short comments explaining non-obvious logic, and explain what you changed after each task so the student can learn from it.
+- Validate every LLM JSON output with Zod. Handle errors with friendly messages.
+- Do not copy the Hacktoberfest logo, wordmark, pixel artwork, or text. The visual language is inspiration only.
+- Never run git commit, git push, or create pull requests unless the student explicitly asks.
+- Never add "Co-authored-by", "Generated with", or any AI attribution to commit messages, PRs, README, or code comments.
