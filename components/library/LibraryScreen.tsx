@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ExportBar } from "@/components/library/ExportBar";
 import { PageImage } from "@/components/review/PageImage";
 import type { NotePage, Subject, Topic } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics } from "@/lib/demo";
@@ -217,6 +218,7 @@ function TopicList({ subject, topics, pages }: { subject: Subject; topics: Topic
         All subjects
       </Button>
       <h2 className="nw-display mt-4 text-[clamp(28px,6vw,48px)] text-ink">{subject.name}</h2>
+      <ExportBar subject={subject} pages={pages.filter((page) => page.subjectId === subject.id)} topics={topics} />
       {topics.length === 0 ? <p className="mt-4 text-lg text-ink">This subject has no topics yet.</p> : null}
       <ul className="mt-4 flex flex-col gap-3">
         {topics.map((topic) => {
@@ -277,6 +279,7 @@ function PageGrid({ subject, topic, pages }: { subject: Subject; topic: Topic; p
         {subject.name}
       </Button>
       <h2 className="nw-display mt-4 text-[clamp(28px,6vw,48px)] text-ink">{topic.name}</h2>
+      <ExportBar subject={subject} topic={topic} pages={pages} topics={[topic]} />
       {pages.length === 0 ? <p className="mt-4 text-lg text-ink">This topic has no pages yet.</p> : null}
       <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {pages.map((page) => (
@@ -331,15 +334,13 @@ function PageRead({ subject, topic, page }: { subject: Subject; topic: Topic; pa
           Delete page
         </Button>
         <Button type="button" variant="secondary" disabled>
-          Export, coming next
-        </Button>
-        <Button type="button" variant="secondary" disabled>
           Listen, coming next
         </Button>
         <Button type="button" variant="secondary" disabled>
           Tutor, coming next
         </Button>
       </div>
+      <ExportBar subject={subject} topic={topic} pages={[page]} topics={[topic]} />
       <ConfirmDialog
         open={remove}
         title="Delete this page?"
