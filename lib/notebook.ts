@@ -1,5 +1,6 @@
 import { getDb, type NotePage, type OcrMode, type Settings, type Subject, type Topic } from "@/lib/db";
 import { isDemoId } from "@/lib/demo";
+import type { SpeechRate } from "@/lib/listen/rates";
 import { titleCaseName } from "@/lib/name";
 import type { NoteStatus } from "@/lib/status";
 
@@ -47,11 +48,11 @@ export async function saveStudentName(raw: string) {
     throw new Error("Name is empty.");
   }
   await db.settings.put({
+    ...existing,
     id: "local",
     name,
     aiConsent: existing?.aiConsent ?? false,
     ocrMode: existing?.ocrMode ?? "cloud",
-    examDate: existing?.examDate,
   });
 }
 
@@ -59,11 +60,11 @@ export async function saveReadingChoice(choice: { aiConsent: boolean; ocrMode: O
   const db = getDb();
   const existing = await db.settings.get("local");
   await db.settings.put({
+    ...existing,
     id: "local",
     name: existing?.name ?? "",
     aiConsent: choice.aiConsent,
     ocrMode: choice.ocrMode,
-    examDate: existing?.examDate,
   });
 }
 
@@ -73,14 +74,17 @@ export async function saveExamDate(examDate?: number) {
   if (!existing?.name) {
     throw new Error("Save a name before an exam date.");
   }
-  const next: Settings = {
-    id: "local",
-    name: existing.name,
-    aiConsent: existing.aiConsent,
-    ocrMode: existing.ocrMode,
-  };
+  const next: Settings = { ...existing, id: "local" };
   if (examDate) next.examDate = examDate;
+  else delete next.examDate;
   await db.settings.put(next);
+}
+
+export async function saveListenPrefs(prefs: { voiceURI?: string; speechRate?: SpeechRate }) {
+  const db = getDb();
+  const existing = await db.settings.get("local");
+  if (!existing?.name) return;
+  await db.settings.put({ ...existing, ...prefs, id: "local" });
 }
 
 /** A card is not started with no pages, needs review if any page does, backed up only when every page has a Drive id. */

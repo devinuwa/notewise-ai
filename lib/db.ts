@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { SpeechRate } from "@/lib/listen/rates";
 import { titleCaseName } from "@/lib/name";
 import type { FlaggedWord } from "@/lib/ocr/types";
 
@@ -59,6 +60,9 @@ export interface Settings {
   aiConsent: boolean;
   ocrMode: OcrMode;
   examDate?: number;
+  /** speechSynthesis voiceURI. Empty until the student picks one. */
+  voiceURI?: string;
+  speechRate?: SpeechRate;
 }
 
 class NoteWiseDB extends Dexie {

@@ -12,7 +12,8 @@ NoteWise is a local-first study companion for handwritten school notes. A studen
 - Export a reviewed page, topic, or subject as a PDF or a Word file. The file is made in the browser. Pages that still need review stay out of the file.
 - Settings shows pages digitized, flagged words fixed, and average accuracy before correction, split into cloud and on-device, with Copy stats for a proposal.
 
-Listen and Tutor are still marked “Coming next”. Export all data (a JSON file) and Delete all data are on the home profile bar and in Settings.
+- Listen reads reviewed pages aloud in the browser, one sentence at a time, with speed and voice remembered in Settings.
+- Tutor is still marked “Coming next”. Export all data (a JSON file) and Delete all data are on the home profile bar and in Settings.
 
 ## Stack
 

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ListenButton } from "@/components/listen/ListenButton";
+import { SpokenText } from "@/components/listen/SpokenText";
 import { ExportBar } from "@/components/library/ExportBar";
 import { PageImage } from "@/components/review/PageImage";
 import type { NotePage, Subject, Topic } from "@/lib/db";
@@ -219,6 +221,11 @@ function TopicList({ subject, topics, pages }: { subject: Subject; topics: Topic
       </Button>
       <h2 className="nw-display mt-4 text-[clamp(28px,6vw,48px)] text-ink">{subject.name}</h2>
       <ExportBar subject={subject} pages={pages.filter((page) => page.subjectId === subject.id)} topics={topics} />
+      <ListenButton
+        subjectName={subject.name}
+        pages={pages.filter((page) => page.subjectId === subject.id)}
+        topics={topics}
+      />
       {topics.length === 0 ? <p className="mt-4 text-lg text-ink">This subject has no topics yet.</p> : null}
       <ul className="mt-4 flex flex-col gap-3">
         {topics.map((topic) => {
@@ -280,6 +287,7 @@ function PageGrid({ subject, topic, pages }: { subject: Subject; topic: Topic; p
       </Button>
       <h2 className="nw-display mt-4 text-[clamp(28px,6vw,48px)] text-ink">{topic.name}</h2>
       <ExportBar subject={subject} topic={topic} pages={pages} topics={[topic]} />
+      <ListenButton subjectName={subject.name} pages={pages} topics={[topic]} />
       {pages.length === 0 ? <p className="mt-4 text-lg text-ink">This topic has no pages yet.</p> : null}
       <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {pages.map((page) => (
@@ -326,7 +334,7 @@ function PageRead({ subject, topic, page }: { subject: Subject; topic: Topic; pa
       </div>
       <div className="mt-6 grid items-start gap-6 md:grid-cols-2">
         <PageImage blob={page.imageBlob} label={`${subject.name} ${topic.name}`} />
-        <p className="whitespace-pre-wrap text-lg text-ink">{page.text || "This page has no text yet."}</p>
+        <SpokenText pageId={page.id} text={page.text} />
       </div>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Button href={`/review/${page.id}`}>Edit</Button>
@@ -334,13 +342,11 @@ function PageRead({ subject, topic, page }: { subject: Subject; topic: Topic; pa
           Delete page
         </Button>
         <Button type="button" variant="secondary" disabled>
-          Listen, coming next
-        </Button>
-        <Button type="button" variant="secondary" disabled>
           Tutor, coming next
         </Button>
       </div>
       <ExportBar subject={subject} topic={topic} pages={[page]} topics={[topic]} />
+      <ListenButton subjectName={subject.name} pages={[page]} topics={[topic]} />
       <ConfirmDialog
         open={remove}
         title="Delete this page?"

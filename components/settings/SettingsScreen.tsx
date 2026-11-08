@@ -6,8 +6,10 @@ import { ClearDataDialog } from "@/components/home/ClearDataDialog";
 import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ListenSettings } from "@/components/listen/ListenSettings";
 import { AccuracyPanel } from "@/components/settings/AccuracyPanel";
 import { clearAllData, type OcrMode } from "@/lib/db";
+import { isSpeechRate } from "@/lib/listen/rates";
 import { examDateFromInput, examDateInputValue, saveExamDate, saveReadingChoice } from "@/lib/notebook";
 import { isNotebookError, useNotebook, useTitleCaseStoredName } from "@/lib/use-notebook";
 
@@ -127,6 +129,10 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
       )}
 
       <ReadingMode mode={snapshot.settings?.ocrMode ?? "cloud"} consented={snapshot.settings?.aiConsent ?? false} />
+      <ListenSettings
+        rate={isSpeechRate(snapshot.settings?.speechRate) ? snapshot.settings.speechRate : 1}
+        voiceURI={snapshot.settings?.voiceURI ?? ""}
+      />
       <AccuracyPanel pages={snapshot.pages} />
 
       <form onSubmit={onExam} className="mt-8 flex flex-col gap-4">
