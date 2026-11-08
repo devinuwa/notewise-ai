@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { PageImage } from "@/components/review/PageImage";
-import type { NotePage, Subject, Topic } from "@/lib/db";
+import { getDb, type NotePage, type Subject, type Topic } from "@/lib/db";
 import type { FlaggedWord } from "@/lib/ocr/types";
+import { kickOcrQueue } from "@/lib/ocr/queue";
 import { asFlags, dropFlag, markPageDone, replaceFlag, savePageDraft, sentenceParts } from "@/lib/review";
 import { isNotebookError, useNotebook } from "@/lib/use-notebook";
 
@@ -48,7 +49,61 @@ export function ReviewScreen({ pageId }: { pageId: string }) {
 
   const subject = notebook.subjects.find((item) => item.id === page.subjectId);
   const topic = notebook.topics.find((item) => item.id === page.topicId);
-  return <ReviewEditor key={page.id} page={page} subject={subject} topic={topic} />;
+  if (page.ocrStatus === "queued" || page.ocrStatus === "reading" || page.ocrStatus === "error") {
+    return <ReadProgress page={page} subject={subject} topic={topic} />;
+  }
+  return <ReviewEditor key={`${page.id}-ready`} page={page} subject={subject} topic={topic} />;
+}
+
+function ReadProgress({
+  page,
+  subject,
+  topic,
+}: {
+  page: NotePage;
+  subject: Subject | undefined;
+  topic: Topic | undefined;
+}) {
+  const label = `${subject?.name ?? "Note"} ${topic?.name ?? ""}`.trim();
+  const waiting = page.ocrStatus === "queued" || page.ocrStatus === "reading";
+  const caption = page.ocrStatus === "queued" ? "Queued" : page.ocrStatus === "reading" ? "Reading" : "Could not read";
+
+  async function retry() {
+    await getDb().notePages.update(page.id, { ocrStatus: "queued", ocrError: "" });
+    kickOcrQueue();
+  }
+
+  return (
+    <main className="nw-page mx-auto w-full max-w-[1100px]">
+      <p className="nw-mono text-[12px] text-muted">
+        {subject?.name ?? "Note"}
+        {topic ? ` · ${topic.name}` : ""}
+      </p>
+      <div className="mt-3">
+        <SectionHeading before="Check this" highlight="page" />
+      </div>
+      <p className="nw-mono mt-3 text-[12px] text-ink">{caption}</p>
+      <div className="mt-6 grid items-start gap-6 md:grid-cols-2">
+        <PageImage blob={page.imageBlob} label={label} />
+        <section aria-live="polite">
+          {waiting ? <PixelLoader caption={caption} tone="on-paper" /> : null}
+          {page.ocrStatus === "error" ? (
+            <div className="border-2 border-ink bg-yellow px-3 py-3 text-ink" role="alert">
+              <p>{page.ocrError || "This page could not be read. The photo is still saved."}</p>
+              <div className="mt-3">
+                <Button type="button" variant="secondary" onClick={() => void retry()}>
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <p className="mt-4 whitespace-pre-wrap text-lg leading-relaxed text-ink">
+            {page.text || (waiting ? "Waiting for the first words." : "")}
+          </p>
+        </section>
+      </div>
+    </main>
+  );
 }
 
 function ReviewEditor({
@@ -118,6 +173,12 @@ function ReviewEditor({
       <div className="mt-3">
         <SectionHeading before="Check this" highlight="page" />
       </div>
+      {page.ocrStatus === "ready" ? <p className="nw-mono mt-3 text-[12px] text-ink">Ready</p> : null}
+      {page.ocrProvider === "tesseract" ? (
+        <p className="mt-3 max-w-xl border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+          This page was read on this phone. Handwriting accuracy is lower.
+        </p>
+      ) : null}
       <p className="mt-3 text-base text-ink" role="status">
         {saved ? "Saved on this device." : "Saving…"}
       </p>

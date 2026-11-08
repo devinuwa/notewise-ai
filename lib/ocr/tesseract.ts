@@ -29,3 +29,8 @@ export async function recognizeOnDevice(blob: Blob) {
   const recognized = await worker.recognize(blob);
   return recognized.data.text ?? "";
 }
+
+/** Warm the on-device reader during idle time. Cloud reading never calls this. */
+export function preloadOnDevice() {
+  return englishWorker().then(() => undefined);
+}

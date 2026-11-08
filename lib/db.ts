@@ -4,6 +4,7 @@ import type { FlaggedWord } from "@/lib/ocr/types";
 
 export type PageStatus = "needs-review" | "digitized";
 export type OcrMode = "cloud" | "on-device";
+export type OcrStatus = "queued" | "reading" | "ready" | "error";
 
 export interface Subject {
   id: string;
@@ -34,6 +35,22 @@ export interface NotePage {
   driveFileId?: string;
   ocrError?: string;
   flagsFixed?: number;
+  /** Small grayscale JPEG sent to the reader. The colour crop stays in imageBlob. */
+  ocrBlob?: Blob;
+  ocrHash?: string;
+  ocrStatus?: OcrStatus;
+  ocrBatchId?: string;
+  preprocessMs?: number;
+  uploadMs?: number;
+  ocrMs?: number;
+}
+
+export interface OcrCacheRow {
+  hash: string;
+  rawOcrText: string;
+  text: string;
+  flaggedWords: FlaggedWord[];
+  provider: string;
 }
 
 export interface Settings {
@@ -49,6 +66,7 @@ class NoteWiseDB extends Dexie {
   topics!: Table<Topic, string>;
   notePages!: Table<NotePage, string>;
   settings!: Table<Settings, string>;
+  ocrCache!: Table<OcrCacheRow, string>;
 
   constructor() {
     super("notewise");
@@ -92,6 +110,19 @@ class NoteWiseDB extends Dexie {
         await tx.table("subjects").clear();
         await tx.table("topics").clear();
       });
+    this.version(3).stores({
+      subjects: "id, name, createdAt",
+      topics: "id, subjectId, createdAt",
+      notePages: "id, topicId, subjectId, status, createdAt",
+      settings: "id",
+      ocrCache: "hash",
+      pages: null,
+      chunks: null,
+      quizzes: null,
+      attempts: null,
+      examProfiles: null,
+      activities: null,
+    });
   }
 }
 

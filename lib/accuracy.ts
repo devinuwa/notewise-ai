@@ -36,6 +36,7 @@ export type ProviderAccuracy = {
 export type AccuracyStats = {
   digitized: number;
   flagsFixed: number;
+  averageSeconds: number | null;
   cloud: ProviderAccuracy;
   device: ProviderAccuracy;
 };
@@ -64,9 +65,11 @@ export function accuracyStats(pages: NotePage[]): AccuracyStats {
     if (provider === "cloud") cloud.push(score);
     if (provider === "device") device.push(score);
   }
+  const timings = real.map((page) => page.ocrMs).filter((value): value is number => typeof value === "number" && value > 0);
   return {
     digitized: done.length,
     flagsFixed: real.reduce((sum, page) => sum + (page.flagsFixed ?? 0), 0),
+    averageSeconds: timings.length === 0 ? null : timings.reduce((sum, value) => sum + value, 0) / timings.length / 1000,
     cloud: averageOf(cloud),
     device: averageOf(device),
   };
@@ -82,6 +85,7 @@ export function statsParagraph(stats: AccuracyStats) {
   return [
     `Pages digitized: ${stats.digitized}`,
     `Flagged words fixed: ${stats.flagsFixed}`,
+    `Average seconds per page: ${stats.averageSeconds === null ? "none yet" : stats.averageSeconds.toFixed(1)}`,
     percent(stats.cloud, "Cloud OCR accuracy before correction"),
     percent(stats.device, "On-device OCR accuracy before correction"),
   ].join("\n");

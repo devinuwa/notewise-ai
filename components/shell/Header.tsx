@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { NAV_ITEMS, isActive } from "@/components/shell/nav";
+import { ReadingPill } from "@/components/shell/ReadingPill";
 import { Wordmark } from "@/components/shell/Wordmark";
 
 export function Header() {
@@ -27,8 +28,9 @@ export function Header() {
       <a href="#content" className="skip-link nw-mono text-[12px]">
         Skip to content
       </a>
-      <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <Wordmark />
+        <ReadingPill />
         <nav className="hidden items-center gap-5 md:flex" aria-label="Main">
           {NAV_ITEMS.map((item) => (
             <Link

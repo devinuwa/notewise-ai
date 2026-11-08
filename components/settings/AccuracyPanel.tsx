@@ -39,6 +39,10 @@ export function AccuracyPanel({ pages }: { pages: NotePage[] }) {
           <dt className="font-semibold">On-device accuracy before correction</dt>
           <dd>{line(stats.device.average, stats.device.pages)}</dd>
         </div>
+        <div>
+          <dt className="font-semibold">Average seconds per page</dt>
+          <dd>{stats.averageSeconds === null ? "No timed pages yet" : `${stats.averageSeconds.toFixed(1)} s`}</dd>
+        </div>
       </dl>
       <p className="mt-3 text-sm text-ink">
         Accuracy is one minus the word edits between the original reading and the final text, divided by the final

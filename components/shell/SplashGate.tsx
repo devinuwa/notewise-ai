@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { OcrRunner } from "@/components/shell/OcrRunner";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { Header } from "@/components/shell/Header";
 import { PixelLoader } from "@/components/ui/PixelLoader";
@@ -31,6 +32,7 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
 
   return (
     <SplashContext.Provider value={phase === "done"}>
+      <OcrRunner />
       {live ? null : <Header />}
       <div id="content" className={hideNav ? "min-h-dvh" : "shell-pad min-h-dvh"}>
         {children}

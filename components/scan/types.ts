@@ -4,6 +4,8 @@ export type DraftPage = {
   sourceBlob: Blob;
   cropBlob: Blob;
   imageBlob: Blob;
+  ocrBlob: Blob;
+  preprocessMs: number;
   previewUrl: string;
 };
 

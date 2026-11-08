@@ -1,15 +1,19 @@
-import type { OcrMode } from "@/lib/db";
 import { parseTranscription } from "@/lib/ocr/parse";
 import { recognizeOnDevice } from "@/lib/ocr/tesseract";
 import type { OcrRun } from "@/lib/ocr/types";
 
 const MAX_TRIES = 3;
 
-type CloudFailure = {
-  status: number;
+class CloudReadError extends Error {
+  retry: boolean;
   retryAfter: number;
-  code: string;
-};
+
+  constructor(retry: boolean, retryAfter = 0) {
+    super("Cloud reading failed.");
+    this.retry = retry;
+    this.retryAfter = retryAfter;
+  }
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,47 +25,93 @@ function waitMs(attempt: number, retryAfter: number) {
   return base / 2 + Math.random() * (base / 2);
 }
 
-function retryable(failure: CloudFailure) {
-  if (failure.code === "not_configured") return false;
-  return failure.status === 429 || failure.status >= 500;
+function merge(previous: string, piece: string) {
+  if (!piece) return previous;
+  if (piece.startsWith(previous)) return piece;
+  return previous + piece;
 }
 
-async function readCloud(blob: Blob): Promise<string> {
-  let last: CloudFailure = { status: 0, retryAfter: 0, code: "" };
+function eventOf(line: string) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("data:")) return null;
+  const data = trimmed.slice(5).trim();
+  if (!data || data === "[DONE]") return { done: true as const };
+  const payload = JSON.parse(data) as { text?: unknown; done?: unknown; error?: unknown };
+  if (payload.error) return { error: true as const };
+  if (payload.done === true) return { done: true as const };
+  if (typeof payload.text === "string" && payload.text) return { text: payload.text };
+  return null;
+}
 
-  for (let attempt = 1; attempt <= MAX_TRIES; attempt += 1) {
-    try {
-      const body = new FormData();
-      body.append("image", blob, "page.jpg");
-      const response = await fetch("/api/ocr", { method: "POST", body });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { code?: string } | null;
-        last = {
-          status: response.status,
-          retryAfter: Number(response.headers.get("retry-after") ?? 0) || 0,
-          code: payload?.code ?? "",
-        };
-        if (!retryable(last) || attempt === MAX_TRIES) {
-          throw new Error("Cloud reading failed.");
-        }
-        await sleep(waitMs(attempt, last.retryAfter));
+async function consume(response: Response, onText: (full: string) => void) {
+  if (!response.body) throw new CloudReadError(true);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let full = "";
+  let done = false;
+
+  while (!done) {
+    const next = await reader.read();
+    if (next.done) break;
+    buffer += decoder.decode(next.value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      let event: ReturnType<typeof eventOf>;
+      try {
+        event = eventOf(line);
+      } catch {
         continue;
       }
-      const payload = (await response.json()) as { text?: unknown };
-      if (typeof payload.text !== "string") throw new Error("Cloud reading failed.");
-      return payload.text;
-    } catch (caught) {
-      if (caught instanceof Error && caught.message === "Cloud reading failed.") throw caught;
-      last = { status: 0, retryAfter: 0, code: "" };
-      if (attempt === MAX_TRIES) throw new Error("Cloud reading failed.");
-      await sleep(waitMs(attempt, 0));
+      if (!event) continue;
+      if ("error" in event) throw new CloudReadError(true);
+      if ("done" in event) {
+        done = true;
+        continue;
+      }
+      full = merge(full, event.text);
+      onText(full);
     }
   }
 
+  if (!done && !full) throw new CloudReadError(true);
+  return full;
+}
+
+async function once(blob: Blob, onText: (full: string) => void) {
+  const body = new FormData();
+  body.append("image", blob, "page.jpg");
+  let response: Response;
+  try {
+    response = await fetch("/api/ocr", { method: "POST", body });
+  } catch {
+    throw new CloudReadError(true);
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { code?: string } | null;
+    const retryAfter = Number(response.headers.get("retry-after") ?? 0) || 0;
+    const retry = payload?.code !== "not_configured" && (response.status === 429 || response.status >= 500);
+    throw new CloudReadError(retry, retryAfter);
+  }
+  return consume(response, onText);
+}
+
+export async function readCloudStream(blob: Blob, onText: (full: string) => void) {
+  for (let attempt = 1; attempt <= MAX_TRIES; attempt += 1) {
+    try {
+      return await once(blob, onText);
+    } catch (caught) {
+      const retry = caught instanceof CloudReadError ? caught.retry : true;
+      const retryAfter = caught instanceof CloudReadError ? caught.retryAfter : 0;
+      if (!retry || attempt === MAX_TRIES) throw new Error("Cloud reading failed.");
+      await sleep(waitMs(attempt, retryAfter));
+    }
+  }
   throw new Error("Cloud reading failed.");
 }
 
-async function readOnDevice(blob: Blob, usedFallback: boolean): Promise<OcrRun> {
+export async function readOnDevice(blob: Blob, usedFallback: boolean): Promise<OcrRun> {
   const rawOcrText = await recognizeOnDevice(blob);
   const parsed = parseTranscription(rawOcrText);
   return {
@@ -69,23 +119,4 @@ async function readOnDevice(blob: Blob, usedFallback: boolean): Promise<OcrRun> 
     usedFallback,
     result: { text: parsed.text, flaggedWords: parsed.flaggedWords, provider: "tesseract" },
   };
-}
-
-export async function ocrPage(blob: Blob, mode: OcrMode): Promise<OcrRun> {
-  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-  if (mode === "on-device" || offline) {
-    return readOnDevice(blob, mode === "cloud");
-  }
-
-  try {
-    const rawOcrText = await readCloud(blob);
-    const parsed = parseTranscription(rawOcrText);
-    return {
-      rawOcrText,
-      usedFallback: false,
-      result: { text: parsed.text, flaggedWords: parsed.flaggedWords, provider: "gemini" },
-    };
-  } catch {
-    return readOnDevice(blob, true);
-  }
 }

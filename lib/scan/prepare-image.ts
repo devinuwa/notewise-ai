@@ -5,13 +5,15 @@ export type PixelCrop = {
   height: number;
 };
 
-const MAX_SAVED_SIDE = 1600;
 const WORKING_SIDE = 3200;
-const TARGET_BYTES = Math.floor(1.5 * 1024 * 1024);
+const OCR_SIDE = 1280;
+const OCR_MAX_BYTES = 400 * 1024;
 
 export type PreparedPage = {
   cropBlob: Blob;
   imageBlob: Blob;
+  ocrBlob: Blob;
+  preprocessMs: number;
 };
 
 function loadImage(url: string) {
@@ -42,22 +44,6 @@ function canvasToJpeg(canvas: HTMLCanvasElement, quality: number) {
       quality,
     );
   });
-}
-
-function clampByte(value: number) {
-  return Math.max(0, Math.min(255, Math.round(value)));
-}
-
-function applyMildContrast(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const amount = 1.12;
-  const image = ctx.getImageData(0, 0, width, height);
-  const pixels = image.data;
-  for (let index = 0; index < pixels.length; index += 4) {
-    pixels[index] = clampByte((pixels[index] - 128) * amount + 128);
-    pixels[index + 1] = clampByte((pixels[index + 1] - 128) * amount + 128);
-    pixels[index + 2] = clampByte((pixels[index + 2] - 128) * amount + 128);
-  }
-  ctx.putImageData(image, 0, 0);
 }
 
 /** Halve the picture until one draw can finish the resize, which keeps notebook text clearer. */
@@ -128,30 +114,63 @@ async function renderCrop(sourceUrl: string, pixelCrop: PixelCrop, rotation: num
   return cropped;
 }
 
-async function cleanedJpeg(cropped: HTMLCanvasElement) {
-  let quality = 0.8;
-  let maxSide = MAX_SAVED_SIDE;
-  let blob = await canvasToJpeg(withContrast(cropped, maxSide), quality);
-  while (blob.size > TARGET_BYTES && quality > 0.5) {
-    quality = Math.round((quality - 0.1) * 10) / 10;
-    blob = await canvasToJpeg(withContrast(cropped, maxSide), quality);
-  }
-  while (blob.size > TARGET_BYTES && maxSide > 800) {
-    maxSide -= 200;
-    blob = await canvasToJpeg(withContrast(cropped, maxSide), quality);
-  }
-  if (blob.size > TARGET_BYTES) {
-    throw new Error("That page is still over 1.5 MB. Crop a smaller area and try again.");
-  }
-  return blob;
+function fitted(width: number, height: number, maxSide: number) {
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
 }
 
-function withContrast(cropped: HTMLCanvasElement, maxSide: number) {
-  const canvas = drawLongestSide(cropped, cropped.width, cropped.height, maxSide);
-  const context = canvas.getContext("2d");
+async function blobFrom(canvas: OffscreenCanvas | HTMLCanvasElement, quality: number) {
+  if (canvas instanceof OffscreenCanvas) {
+    const blob = await canvas.convertToBlob({ type: "image/jpeg", quality });
+    if (!blob || blob.size === 0 || blob.type !== "image/jpeg") {
+      throw new Error("This browser could not save the page as a JPEG.");
+    }
+    return blob;
+  }
+  return canvasToJpeg(canvas, quality);
+}
+
+async function drawFilteredJpeg(bitmap: ImageBitmap, maxSide: number, quality: number) {
+  const size = fitted(bitmap.width, bitmap.height, maxSide);
+  const canvas =
+    typeof OffscreenCanvas === "undefined"
+      ? document.createElement("canvas")
+      : new OffscreenCanvas(size.width, size.height);
+  if (!(canvas instanceof OffscreenCanvas)) {
+    canvas.width = size.width;
+    canvas.height = size.height;
+  }
+  const context = canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
   if (!context) throw new Error("This browser could not prepare the page.");
-  applyMildContrast(context, canvas.width, canvas.height);
-  return canvas;
+  context.filter = "grayscale(1) contrast(1.15)";
+  context.drawImage(bitmap, 0, 0, size.width, size.height);
+  return blobFrom(canvas, quality);
+}
+
+/** Small grayscale JPEG for the reader. The colour crop is what the student sees. */
+export async function makeOcrJpeg(source: Blob) {
+  const bitmap = await createImageBitmap(source);
+  try {
+    let side = OCR_SIDE;
+    let quality = 0.7;
+    let blob = await drawFilteredJpeg(bitmap, side, quality);
+    for (const next of [0.55, 0.4]) {
+      if (blob.size <= OCR_MAX_BYTES) break;
+      quality = next;
+      blob = await drawFilteredJpeg(bitmap, side, quality);
+    }
+    for (const next of [1024, 800]) {
+      if (blob.size <= OCR_MAX_BYTES) break;
+      side = next;
+      blob = await drawFilteredJpeg(bitmap, side, quality);
+    }
+    return blob;
+  } finally {
+    bitmap.close();
+  }
 }
 
 /** Shrink a huge camera photo before the crop tool, so the canvas stays within what phones can draw. */
@@ -176,8 +195,9 @@ export async function workingPhoto(file: Blob) {
 export async function preparePageImage(sourceUrl: string, pixelCrop: PixelCrop, rotation: number): Promise<PreparedPage> {
   const cropped = await renderCrop(sourceUrl, pixelCrop, rotation);
   const cropBlob = await canvasToJpeg(cropped, 0.92);
-  const imageBlob = await cleanedJpeg(cropped);
-  return { cropBlob, imageBlob };
+  const started = performance.now();
+  const ocrBlob = await makeOcrJpeg(cropBlob);
+  return { cropBlob, imageBlob: cropBlob, ocrBlob, preprocessMs: Math.round(performance.now() - started) };
 }
 
 export async function frameToJpeg(video: HTMLVideoElement) {

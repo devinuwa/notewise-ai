@@ -56,7 +56,7 @@ Copy `.env.example` to `.env.local` for local work. Both values start empty.
 | Name | Purpose |
 | --- | --- |
 | `GEMINI_API_KEY` | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Server only. |
-| `GEMINI_MODEL` | Vision-capable Flash model id from the [model list](https://ai.google.dev/gemini-api/docs/models). A current name to paste is `gemini-3.8-flash`. |
+| `GEMINI_MODEL` | Vision-capable Flash or Flash-Lite model id from the [model list](https://ai.google.dev/gemini-api/docs/models). A current fast name to paste is `gemini-3.5-flash-lite`. |
 
 If either value is missing, cloud reading stays off and the app falls back to on-device reading. On-device reading does not need a key. The English language file is served from this app and cached after the first read.
 

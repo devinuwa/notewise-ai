@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -15,44 +16,13 @@ import { newId } from "@/lib/scan/ids";
 import type { PreparedPage } from "@/lib/scan/prepare-image";
 import { workingPhoto } from "@/lib/scan/prepare-image";
 import { OcrConsentDialog } from "@/components/scan/OcrConsentDialog";
-import { getDb, type OcrMode } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { shownPages } from "@/lib/demo";
 import { saveReadingChoice } from "@/lib/notebook";
-import { readSavedPages, type PageRead } from "@/lib/ocr/queue";
+import { kickOcrQueue } from "@/lib/ocr/queue";
 import { saveScanBatch } from "@/lib/scan/save-batch";
 
-type Step = "capture" | "place" | "consent" | "reading" | "saved";
-
-type ReadReport = {
-  total: number;
-  cloud: number;
-  device: number;
-  fallback: number;
-  failures: { id: string; error: string }[];
-};
-
-function freshReport(reads: PageRead[]): ReadReport {
-  const report: ReadReport = { total: reads.length, cloud: 0, device: 0, fallback: 0, failures: [] };
-  for (const read of reads) {
-    if (!read.ok) report.failures.push({ id: read.id, error: read.error });
-    else if (read.provider === "gemini") report.cloud += 1;
-    else if (read.usedFallback) report.fallback += 1;
-    else report.device += 1;
-  }
-  return report;
-}
-
-function withRetry(current: ReadReport, read: PageRead): ReadReport {
-  const report: ReadReport = {
-    ...current,
-    failures: current.failures.filter((item) => item.id !== read.id),
-  };
-  if (!read.ok) report.failures = [...report.failures, { id: read.id, error: read.error }];
-  else if (read.provider === "gemini") report.cloud += 1;
-  else if (read.usedFallback) report.fallback += 1;
-  else report.device += 1;
-  return report;
-}
+type Step = "capture" | "place" | "consent";
 
 type CropQueue = {
   active: CropJob | null;
@@ -71,6 +41,7 @@ function revokePage(page: DraftPage) {
 
 export function ScanScreen() {
   const notebook = useNotebook();
+  const router = useRouter();
   const liveCamera = useLiveCameraAvailable();
   const cameraInput = useRef<HTMLInputElement>(null);
   const galleryInput = useRef<HTMLInputElement>(null);
@@ -81,9 +52,8 @@ export function ScanScreen() {
   const [step, setStep] = useState<Step>("capture");
   const [notice, setNotice] = useState("");
   const [saveError, setSaveError] = useState("");
-  const [pendingIds, setPendingIds] = useState<string[]>([]);
-  const [progress, setProgress] = useState({ current: 1, total: 1 });
-  const [report, setReport] = useState<ReadReport | null>(null);
+  const [place, setPlace] = useState<{ subject: string; topic: string } | null>(null);
+  const saving = useRef(false);
 
   function reservedNewPages(queue: CropQueue) {
     const activeNew = queue.active && !queue.active.replaceId ? 1 : 0;
@@ -163,6 +133,8 @@ export function ScanScreen() {
       sourceBlob: job.sourceBlob,
       cropBlob: prepared.cropBlob,
       imageBlob: prepared.imageBlob,
+      ocrBlob: prepared.ocrBlob,
+      preprocessMs: prepared.preprocessMs,
       previewUrl,
     };
     setPages((current) => {
@@ -193,53 +165,50 @@ export function ScanScreen() {
       current.pending.forEach((job) => URL.revokeObjectURL(job.sourceUrl));
       return { active: null, pending: [] };
     });
-    setPendingIds([]);
-    setReport(null);
     setNotice("");
     setSaveError("");
     setStep("capture");
   }
 
-  async function runQueue(ids: string[], mode: OcrMode, retrying: boolean) {
-    setStep("reading");
-    setProgress({ current: 1, total: Math.max(1, ids.length) });
-    const reads = await readSavedPages(ids, mode, (current, total) => {
-      setProgress({ current, total });
-    });
-    setReport((current) => {
-      if (retrying && current) return reads.reduce(withRetry, current);
-      return freshReport(reads);
-    });
-    setStep("saved");
-  }
-
-  async function beginReading(ids: string[], retrying: boolean) {
-    const settings = await getDb().settings.get("local");
-    const mode = settings?.ocrMode ?? "cloud";
-    if (mode === "cloud" && !settings?.aiConsent) {
-      setPendingIds(ids);
-      setStep("consent");
-      return;
-    }
-    await runQueue(ids, mode, retrying);
-  }
-
-  async function readHandwriting(subjectName: string, topicName: string) {
+  async function saveAndOpen(subjectName: string, topicName: string) {
+    if (saving.current) return;
+    saving.current = true;
     setSaveError("");
-    setStep("reading");
-    setProgress({ current: 1, total: Math.max(1, pages.length) });
     try {
       const saved = await saveScanBatch({
-        images: pages.map((page) => ({ imageBlob: page.imageBlob })),
+        images: pages.map((page) => ({
+          imageBlob: page.imageBlob,
+          ocrBlob: page.ocrBlob,
+          preprocessMs: page.preprocessMs,
+        })),
         subjectName,
         topicName,
       });
+      const firstId = saved.pageIds[0];
       setPages((current) => {
         current.forEach(revokePage);
         return [];
       });
-      setPendingIds(saved.pageIds);
-      await beginReading(saved.pageIds, false);
+      kickOcrQueue();
+      if (firstId) router.push(`/review/${firstId}`);
+    } catch (caught) {
+      setSaveError(caught instanceof Error ? caught.message : "The pages could not be saved on this device.");
+      setStep("place");
+    } finally {
+      saving.current = false;
+    }
+  }
+
+  async function readHandwriting(subjectName: string, topicName: string) {
+    setSaveError("");
+    try {
+      const settings = await getDb().settings.get("local");
+      if ((settings?.ocrMode ?? "cloud") === "cloud" && !settings?.aiConsent) {
+        setPlace({ subject: subjectName, topic: topicName });
+        setStep("consent");
+        return;
+      }
+      await saveAndOpen(subjectName, topicName);
     } catch (caught) {
       setSaveError(caught instanceof Error ? caught.message : "The pages could not be saved on this device.");
       setStep("place");
@@ -248,18 +217,28 @@ export function ScanScreen() {
 
   async function chooseCloud() {
     await saveReadingChoice({ aiConsent: true, ocrMode: "cloud" });
-    await runQueue(pendingIds, "cloud", false);
+    if (!place) return;
+    await saveAndOpen(place.subject, place.topic);
   }
 
   async function chooseDevice() {
     await saveReadingChoice({ aiConsent: false, ocrMode: "on-device" });
-    await runQueue(pendingIds, "on-device", false);
+    if (!place) return;
+    await saveAndOpen(place.subject, place.topic);
+  }
+
+  async function retryStored(id: string) {
+    await getDb().notePages.update(id, { ocrStatus: "queued", ocrError: "" });
+    kickOcrQueue();
+    router.push(`/review/${id}`);
   }
 
   const subjects = notebook && !isNotebookError(notebook) ? notebook.subjects : [];
   const topics = notebook && !isNotebookError(notebook) ? notebook.topics : [];
   const failedStored =
-    notebook && !isNotebookError(notebook) ? shownPages(notebook.pages).filter((page) => page.ocrError) : [];
+    notebook && !isNotebookError(notebook)
+      ? shownPages(notebook.pages).filter((page) => page.ocrStatus === "error")
+      : [];
 
   return (
     <main className="nw-page mx-auto w-full max-w-[1200px]">
@@ -361,9 +340,9 @@ export function ScanScreen() {
             <ul className="mt-8 flex max-w-xl flex-col gap-3">
               {failedStored.map((page) => (
                 <li key={page.id} className="border-2 border-ink bg-yellow px-3 py-3 text-ink">
-                  <p>{page.ocrError}</p>
+                  <p>{page.ocrError || "This page could not be read. The photo is still saved."}</p>
                   <div className="mt-3">
-                    <Button type="button" variant="secondary" onClick={() => void beginReading([page.id], false)}>
+                    <Button type="button" variant="secondary" onClick={() => void retryStored(page.id)}>
                       Retry
                     </Button>
                   </div>
@@ -400,63 +379,6 @@ export function ScanScreen() {
 
       {step === "consent" ? (
         <p className="max-w-xl text-lg text-ink">Photos are saved on this device. Choose how to read them.</p>
-      ) : null}
-
-      {step === "reading" ? (
-        <div className="grid min-h-64 place-items-center">
-          <PixelLoader caption={`Reading page ${progress.current} of ${progress.total}`} tone="on-paper" />
-        </div>
-      ) : null}
-
-      {step === "saved" && report ? (
-        <section>
-          <p className="nw-mono text-[12px] text-muted">Saved</p>
-          <div className="mt-3">
-            <SectionHeading before="Pages saved for" highlight="review" />
-          </div>
-          <p className="mt-4 max-w-xl text-lg text-ink">
-            Saved {report.total} {report.total === 1 ? "page" : "pages"} on this device for review.
-          </p>
-          {report.cloud > 0 ? (
-            <p className="mt-3 max-w-xl text-lg text-ink">
-              Cloud reading sent {report.cloud} {report.cloud === 1 ? "photo" : "photos"} to Google AI Studio.
-            </p>
-          ) : null}
-          {report.device > 0 ? (
-            <p className="mt-3 max-w-xl text-lg text-ink">
-              On-device reading kept {report.device} {report.device === 1 ? "photo" : "photos"} on this phone.
-              Handwriting accuracy is lower.
-            </p>
-          ) : null}
-          {report.fallback > 0 ? (
-            <p className="mt-3 max-w-xl border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
-              Cloud reading did not finish, so {report.fallback} {report.fallback === 1 ? "page was" : "pages were"}{" "}
-              read on this phone. Handwriting accuracy is lower.
-            </p>
-          ) : null}
-          {report.failures.length > 0 ? (
-            <ul className="mt-4 flex max-w-xl flex-col gap-3">
-              {report.failures.map((failure) => (
-                <li key={failure.id} className="border-2 border-ink bg-yellow px-3 py-3 text-ink">
-                  <p>{failure.error}</p>
-                  <div className="mt-3">
-                    <Button type="button" variant="secondary" onClick={() => void beginReading([failure.id], true)}>
-                      Retry
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <Button type="button" className="w-full sm:w-auto" onClick={clearBatch}>
-              Scan another batch
-            </Button>
-            <Button href="/" variant="secondary" className="w-full sm:w-auto">
-              Back to my notes
-            </Button>
-          </div>
-        </section>
       ) : null}
 
       <OcrConsentDialog

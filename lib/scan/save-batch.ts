@@ -4,6 +4,8 @@ import { canonicalSubjectName, nextSubjectColour } from "@/lib/scan/subjects";
 
 export type BatchImage = {
   imageBlob: Blob;
+  ocrBlob: Blob;
+  preprocessMs: number;
 };
 
 function sameName(left: string, right: string) {
@@ -26,6 +28,7 @@ export async function saveScanBatch(input: {
 
   const db = getDb();
   const now = Date.now();
+  const batchId = newId();
   const pageIds: string[] = [];
 
   await db.transaction("rw", [db.subjects, db.topics, db.notePages], async () => {
@@ -61,6 +64,10 @@ export async function saveScanBatch(input: {
         topicId: topic.id,
         subjectId: subject.id,
         imageBlob: image.imageBlob,
+        ocrBlob: image.ocrBlob,
+        preprocessMs: image.preprocessMs,
+        ocrStatus: "queued",
+        ocrBatchId: batchId,
         rawOcrText: "",
         text: "",
         flaggedWords: [],
@@ -72,7 +79,7 @@ export async function saveScanBatch(input: {
     await db.notePages.bulkAdd(records);
   });
 
-  return { pageIds, subjectName, topicName };
+  return { pageIds, batchId, subjectName, topicName };
 }
 
 export type { Subject, Topic };

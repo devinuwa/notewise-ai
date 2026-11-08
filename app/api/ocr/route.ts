@@ -5,6 +5,8 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const WINDOW_MS = 60_000;
 const LIMIT = 12;
 
+export const maxDuration = 30;
+
 // One process only. A restart, or a second server, starts the count again.
 const buckets = new Map<string, { count: number; reset: number }>();
 
@@ -16,6 +18,9 @@ class ImageProblem extends Error {
     this.status = status;
   }
 }
+
+type GeminiPart = { text?: string; thought?: boolean };
+type GeminiChunk = { candidates?: { content?: { parts?: GeminiPart[] } }[] };
 
 function clientIp(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -78,11 +83,16 @@ async function readImage(request: Request) {
   throw new ImageProblem(415, "Use a JPEG, PNG, or WebP photo.");
 }
 
-function transcription(payload: {
-  candidates?: { content?: { parts?: { text?: string }[] } }[];
-}) {
+function piece(payload: GeminiChunk) {
   const parts = payload.candidates?.[0]?.content?.parts ?? [];
-  return parts.map((part) => part.text ?? "").join("");
+  return parts
+    .filter((part) => !part.thought)
+    .map((part) => part.text ?? "")
+    .join("");
+}
+
+function sse(payload: unknown) {
+  return `data: ${JSON.stringify(payload)}\n\n`;
 }
 
 export async function POST(request: Request) {
@@ -112,8 +122,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+  const upstream = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
     {
       method: "POST",
       headers: {
@@ -129,17 +139,65 @@ export async function POST(request: Request) {
             ],
           },
         ],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 2048,
+          thinkingConfig: { thinkingLevel: "MINIMAL" },
+        },
       }),
     },
   );
 
-  if (!response.ok) {
-    return Response.json({ error: "The handwriting service could not read this page." }, { status: response.status });
+  if (!upstream.ok || !upstream.body) {
+    return Response.json(
+      { error: "The handwriting service could not read this page." },
+      { status: upstream.ok ? 502 : upstream.status },
+    );
   }
 
-  const payload = (await response.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  // Returned to this phone only. The photo and the transcription are not written to the server log.
-  return Response.json({ text: transcription(payload) });
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const data = trimmed.slice(5).trim();
+            if (!data || data === "[DONE]") continue;
+            try {
+              const text = piece(JSON.parse(data) as GeminiChunk);
+              if (text) controller.enqueue(encoder.encode(sse({ text })));
+            } catch {
+              // A broken event is skipped. The photo and any text stay out of the log.
+            }
+          }
+        }
+        controller.enqueue(encoder.encode(sse({ done: true })));
+      } catch {
+        controller.enqueue(encoder.encode(sse({ error: "The handwriting service stopped." })));
+      } finally {
+        controller.close();
+      }
+    },
+    cancel() {
+      void reader.cancel();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+    },
+  });
 }
