@@ -13,7 +13,8 @@ NoteWise is a local-first study companion for handwritten school notes. A studen
 - Settings shows pages digitized, flagged words fixed, and average accuracy before correction, split into cloud and on-device, with Copy stats for a proposal.
 
 - Listen reads reviewed pages aloud in the browser, one sentence at a time, with speed and voice remembered in Settings.
-- Tutor is still marked “Coming next”. Export all data (a JSON file) and Delete all data are on the home profile bar and in Settings.
+- Tutor chat answers from the reviewed notes that match the question. The student can filter by subject, copy an answer, or listen to it. Live Tutor, the voice room, is still a later step.
+- Export all data (a JSON file) and Delete all data are on the home profile bar and in Settings.
 
 ## Stack
 
@@ -70,6 +71,7 @@ A development build has a Load demo notes button in Settings. Those sample rows 
 
 - The student name, subjects, topics, photos, and corrected text stay in IndexedDB on that device.
 - Cloud reading sends the page photo to Google AI Studio after the student chooses “I understand, continue”. Free AI services may use submitted content to improve their products.
+- Tutor chat sends the question, the last few messages, and up to four matching note excerpts to the same service. The server does not write those texts to its log. The saved chat stays in IndexedDB.
 - Do not scan pages with phone numbers, addresses, or other private details.
 - On-device reading keeps the photo on the phone. It is less accurate on handwriting.
 - Delete all data removes the local notebook and the cloud-reading choice. It does not delete anything that was already sent to Google, and it does not touch a future Drive backup.

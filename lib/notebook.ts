@@ -119,8 +119,8 @@ export function noteCards(subjects: Subject[], topics: Topic[], pages: NotePage[
     });
 }
 
-/** Quiz and Tutor stay at zero until those screens write real records. */
-export function activityProgress(pages: NotePage[]): ActivityProgress[] {
+/** Quiz stays at zero until that screen writes records. Tutor counts saved questions. */
+export function activityProgress(pages: NotePage[], tutorQuestions = 0): ActivityProgress[] {
   return [
     { id: "scan", label: "Scan 5 pages", progress: pages.length, goal: 5 },
     {
@@ -130,7 +130,7 @@ export function activityProgress(pages: NotePage[]): ActivityProgress[] {
       goal: 3,
     },
     { id: "quiz", label: "Finish a 10-question quiz", progress: 0, goal: 10 },
-    { id: "tutor", label: "Ask the Tutor 3 questions", progress: 0, goal: 3 },
+    { id: "tutor", label: "Ask the Tutor 3 questions", progress: tutorQuestions, goal: 3 },
     {
       id: "drive",
       label: "Back up to Drive",

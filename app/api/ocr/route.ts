@@ -1,3 +1,4 @@
+import { openGeminiStream, readGeminiSetup } from "@/lib/ai/adapter";
 import { HANDWRITING_TRANSCRIPTION_PROMPT } from "@/lib/ai/prompts";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -113,39 +114,32 @@ export async function POST(request: Request) {
     return Response.json({ error: message }, { status });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL;
-  if (!apiKey || !model || !/^[a-zA-Z0-9._-]+$/.test(model)) {
+  const setup = readGeminiSetup();
+  if (!setup) {
     return Response.json(
       { error: "Cloud reading is not set up.", code: "not_configured" },
       { status: 503 },
     );
   }
 
-  const upstream = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
+  const upstream = await openGeminiStream(
+    setup,
     {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { inline_data: { mime_type: image.mime, data: image.bytes.toString("base64") } },
-              { text: HANDWRITING_TRANSCRIPTION_PROMPT },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0,
-          maxOutputTokens: 2048,
-          thinkingConfig: { thinkingLevel: "MINIMAL" },
+      contents: [
+        {
+          parts: [
+            { inline_data: { mime_type: image.mime, data: image.bytes.toString("base64") } },
+            { text: HANDWRITING_TRANSCRIPTION_PROMPT },
+          ],
         },
-      }),
+      ],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 2048,
+        thinkingConfig: { thinkingLevel: "MINIMAL" },
+      },
     },
+    request.signal,
   );
 
   if (!upstream.ok || !upstream.body) {

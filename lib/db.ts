@@ -54,6 +54,23 @@ export interface OcrCacheRow {
   provider: string;
 }
 
+export interface ChatSource {
+  pageId: string;
+  topicId: string;
+  subjectId: string;
+  label: string;
+}
+
+/** A saved tutor turn. User rows are what Home counts as questions. */
+export interface ChatMessage {
+  id: string;
+  role: "user" | "tutor";
+  text: string;
+  createdAt: number;
+  subjectId?: string;
+  sources?: ChatSource[];
+}
+
 /** One piece of a reviewed page, with the vector used for meaning search. */
 export interface Chunk {
   id: string;
@@ -83,6 +100,7 @@ class NoteWiseDB extends Dexie {
   settings!: Table<Settings, string>;
   ocrCache!: Table<OcrCacheRow, string>;
   chunks!: Table<Chunk, string>;
+  chatMessages!: Table<ChatMessage, string>;
 
   constructor() {
     super("notewise");
@@ -142,6 +160,9 @@ class NoteWiseDB extends Dexie {
     // Version 2 removed the unused chunks table. Version 4 creates the real one.
     this.version(4).stores({
       chunks: "id, pageId, topicId, subjectId, createdAt",
+    });
+    this.version(5).stores({
+      chatMessages: "id, role, createdAt",
     });
   }
 }

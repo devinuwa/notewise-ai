@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { useRouter } from "next/navigation";
 import { ActivitiesSection } from "@/components/home/ActivitiesSection";
 import { ClearDataDialog } from "@/components/home/ClearDataDialog";
@@ -17,6 +18,7 @@ import { clearAllData } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics, withoutDemoPages, withoutDemoSubjects } from "@/lib/demo";
 import { heroSubtext } from "@/lib/home-copy";
 import { activityProgress, noteCards, saveStudentName } from "@/lib/notebook";
+import { countTutorQuestions } from "@/lib/tutor/store";
 import { isNotebookError, useNotebook, useTitleCaseStoredName } from "@/lib/use-notebook";
 
 function subscribeReduced(onChange: () => void) {
@@ -33,6 +35,7 @@ function HomeBody({ onClear }: { onClear: () => void }) {
   const ready = useSplashDone();
   const reduce = useSyncExternalStore(subscribeReduced, reducedSnapshot, () => false);
   const snapshot = useNotebook();
+  const asked = useLiveQuery(() => countTutorQuestions()) ?? 0;
   const [exportError, setExportError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const storedName = snapshot && !isNotebookError(snapshot) ? snapshot.settings?.name : undefined;
@@ -69,7 +72,7 @@ function HomeBody({ onClear }: { onClear: () => void }) {
   const countedSubjects = withoutDemoSubjects(snapshot.subjects);
   const pages = shownPages(snapshot.pages);
   const cards = noteCards(shownSubjects(snapshot.subjects), shownTopics(snapshot.topics), pages);
-  const activities = activityProgress(countedPages);
+  const activities = activityProgress(countedPages, asked);
   const subtext = heroSubtext(countedPages.length, countedSubjects.length, snapshot.settings?.examDate);
 
   return (
