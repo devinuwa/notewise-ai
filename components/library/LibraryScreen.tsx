@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ListenButton } from "@/components/listen/ListenButton";
 import { SpokenText } from "@/components/listen/SpokenText";
 import { ExportBar } from "@/components/library/ExportBar";
+import { NoteSearch, ReviewedIndex } from "@/components/library/NoteSearch";
 import { PageImage } from "@/components/review/PageImage";
 import type { NotePage, Subject, Topic } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics } from "@/lib/demo";
@@ -18,8 +19,6 @@ import {
   deleteTopic,
   renameSubject,
   renameTopic,
-  searchPages,
-  snippet,
   subjectById,
   subjectTopics,
   topicPages,
@@ -31,7 +30,6 @@ export function LibraryScreen() {
   const params = useParams<{ slug?: string[] }>();
   const raw = params.slug;
   const slug = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  const [query, setQuery] = useState("");
 
   if (!notebook) {
     return (
@@ -54,7 +52,6 @@ export function LibraryScreen() {
   const subjects = shownSubjects(notebook.subjects);
   const topics = shownTopics(notebook.topics);
   const pages = shownPages(notebook.pages);
-  const matches = searchPages(pages, query);
 
   return (
     <main className="nw-page mx-auto w-full max-w-[1100px]">
@@ -62,57 +59,35 @@ export function LibraryScreen() {
       <div className="mt-3">
         <SectionHeading before="Your" highlight="library" />
       </div>
-      <label className="mt-6 block max-w-xl">
-        <span className="nw-mono text-[12px] text-muted">Search page text</span>
-        <input
-          className="nw-input mt-2 w-full"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Try mitosis"
-        />
-      </label>
-      {query.trim() ? (
-        <SearchResults pages={matches} subjects={subjects} topics={topics} query={query} />
-      ) : (
-        <LibraryPath slug={slug} subjects={subjects} topics={topics} pages={pages} />
-      )}
+      <ReviewedIndex pages={pages} />
+      <LibraryBody slug={slug} subjects={subjects} topics={topics} pages={pages} />
     </main>
   );
 }
 
-function SearchResults({
-  pages,
+function LibraryBody({
+  slug,
   subjects,
   topics,
-  query,
+  pages,
 }: {
-  pages: NotePage[];
+  slug: string[];
   subjects: Subject[];
   topics: Topic[];
-  query: string;
+  pages: NotePage[];
 }) {
-  if (pages.length === 0) {
-    return <p className="mt-6 text-lg text-ink">No page text matches that search.</p>;
-  }
+  const [query, setQuery] = useState("");
   return (
-    <ul className="mt-6 flex flex-col gap-3">
-      {pages.map((page) => {
-        const subject = subjectById(subjects, page.subjectId);
-        const topic = topics.find((item) => item.id === page.topicId);
-        return (
-          <li key={page.id} className="border-2 border-ink bg-paper p-4">
-            <p className="nw-mono text-[12px] text-muted">
-              {subject?.name ?? "Note"}
-              {topic ? ` · ${topic.name}` : ""}
-            </p>
-            <p className="mt-2 text-base text-ink">{snippet(page.text, query)}</p>
-            <div className="mt-3">
-              <Button href={`/library/${page.subjectId}/${page.topicId}/${page.id}`}>Open page</Button>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <NoteSearch
+        subjects={subjects}
+        topics={topics}
+        hasUnreviewed={pages.some((page) => page.status !== "digitized")}
+        query={query}
+        onQuery={setQuery}
+      />
+      {query.trim() ? null : <LibraryPath slug={slug} subjects={subjects} topics={topics} pages={pages} />}
+    </>
   );
 }
 

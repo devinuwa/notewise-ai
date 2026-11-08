@@ -54,6 +54,17 @@ export interface OcrCacheRow {
   provider: string;
 }
 
+/** One piece of a reviewed page, with the vector used for meaning search. */
+export interface Chunk {
+  id: string;
+  pageId: string;
+  topicId: string;
+  subjectId: string;
+  text: string;
+  embedding: Float32Array;
+  createdAt: number;
+}
+
 export interface Settings {
   id: "local";
   name: string;
@@ -71,6 +82,7 @@ class NoteWiseDB extends Dexie {
   notePages!: Table<NotePage, string>;
   settings!: Table<Settings, string>;
   ocrCache!: Table<OcrCacheRow, string>;
+  chunks!: Table<Chunk, string>;
 
   constructor() {
     super("notewise");
@@ -126,6 +138,10 @@ class NoteWiseDB extends Dexie {
       attempts: null,
       examProfiles: null,
       activities: null,
+    });
+    // Version 2 removed the unused chunks table. Version 4 creates the real one.
+    this.version(4).stores({
+      chunks: "id, pageId, topicId, subjectId, createdAt",
     });
   }
 }

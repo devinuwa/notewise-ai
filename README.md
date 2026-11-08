@@ -8,7 +8,7 @@ NoteWise is a local-first study companion for handwritten school notes. A studen
 - Crop, rotate, and keep up to 20 pages in one batch. Choose a subject and a topic, including the common Nigerian school subjects.
 - Read handwriting in the cloud with Gemini, or on the phone with Tesseract.js. Cloud is used only after a consent dialog. If the cloud call fails or the phone is offline, reading continues on the device and the screen says the accuracy is lower.
 - Review flagged words in the sentence, or edit the full text. Marking a page done saves it to the library.
-- Browse subjects, topics, and pages. Search the page text. Rename or delete with a confirmation.
+- Browse subjects, topics, and pages. Search reviewed notes by meaning. If the model is still downloading, search matches words instead. Rename or delete with a confirmation.
 - Export a reviewed page, topic, or subject as a PDF or a Word file. The file is made in the browser. Pages that still need review stay out of the file.
 - Settings shows pages digitized, flagged words fixed, and average accuracy before correction, split into cloud and on-device, with Copy stats for a proposal.
 
@@ -27,6 +27,7 @@ Free and open-source only:
 - [react-easy-crop](https://github.com/ValentinH/react-easy-crop)
 - [lucide-react](https://lucide.dev/)
 - [pdf-lib](https://pdf-lib.js.org/) and [docx](https://docx.js.org/) for files made on the phone
+- [@huggingface/transformers](https://huggingface.co/docs/transformers.js) runs a small embedding model in the browser. It downloads once, then search works offline.
 
 Cloud reading calls the free tier of Google AI Studio (Gemini). That service is not open source. The model name is an environment variable, so it can be changed without editing the app. The photo is sent only from the server route, and the API key never ships to the browser.
 

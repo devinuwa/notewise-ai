@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { PageImage } from "@/components/review/PageImage";
+import { StudyBrainLoader } from "@/components/library/NoteSearch";
 import { getDb, type NotePage, type Subject, type Topic } from "@/lib/db";
 import type { FlaggedWord } from "@/lib/ocr/types";
 import { kickOcrQueue } from "@/lib/ocr/queue";
@@ -154,6 +155,7 @@ function ReviewEditor({
       <main className="nw-page mx-auto grid min-h-[50vh] w-full max-w-[720px] place-items-center">
         <div className="text-center">
           <PixelLoader caption="Saved to your library" tone="on-paper" />
+          <StudyBrainLoader />
           <div className="mt-8">
             <Button href={`/library/${page.subjectId}/${page.topicId}/${page.id}`}>See it in the library</Button>
           </div>
@@ -173,6 +175,7 @@ function ReviewEditor({
       <div className="mt-3">
         <SectionHeading before="Check this" highlight="page" />
       </div>
+      <StudyBrainLoader />
       {page.ocrStatus === "ready" ? <p className="nw-mono mt-3 text-[12px] text-ink">Ready</p> : null}
       {page.ocrProvider === "tesseract" ? (
         <p className="mt-3 max-w-xl border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">

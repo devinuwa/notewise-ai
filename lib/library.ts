@@ -35,7 +35,8 @@ export async function renameTopic(id: string, name: string) {
 
 export async function deleteTopic(id: string) {
   const db = getDb();
-  await db.transaction("rw", [db.topics, db.notePages], async () => {
+  await db.transaction("rw", [db.topics, db.notePages, db.chunks], async () => {
+    await db.chunks.where("topicId").equals(id).delete();
     await db.notePages.where("topicId").equals(id).delete();
     await db.topics.delete(id);
   });
@@ -43,7 +44,10 @@ export async function deleteTopic(id: string) {
 
 export async function deletePage(id: string) {
   const db = getDb();
-  await db.notePages.delete(id);
+  await db.transaction("rw", [db.notePages, db.chunks], async () => {
+    await db.chunks.where("pageId").equals(id).delete();
+    await db.notePages.delete(id);
+  });
 }
 
 export function topicPages(pages: NotePage[], topicId: string) {

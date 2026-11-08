@@ -1,5 +1,6 @@
 import { getDb, type NotePage } from "@/lib/db";
 import type { FlaggedWord } from "@/lib/ocr/types";
+import { scheduleIndex } from "@/lib/rag/sync";
 
 export function asFlags(value: unknown, text = ""): FlaggedWord[] {
   if (!Array.isArray(value)) return [];
@@ -71,6 +72,7 @@ export async function savePageDraft(
     flagsFixed: draft.flagsFixed,
   };
   await db.notePages.put(next);
+  if (next.status === "digitized") scheduleIndex(next.id);
 }
 
 export async function markPageDone(
@@ -90,4 +92,5 @@ export async function markPageDone(
   };
   delete next.ocrError;
   await db.notePages.put(next);
+  scheduleIndex(next.id);
 }

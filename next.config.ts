@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   allowedDevOrigins: ["10.195.227.248"],
   turbopack: {
+    resolveAlias: {
+      // The package export map hides the browser build from the worker bundler.
+      // Point at the web file, which does not load the Node ONNX runtime.
+      "@huggingface/transformers": "./node_modules/@huggingface/transformers/dist/transformers.web.js",
+    },
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],
