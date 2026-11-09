@@ -69,7 +69,13 @@ export async function search(query: string, options: SearchOptions = {}): Promis
         const covered = new Set(embedded.map((chunk) => chunk.pageId));
         const missing = reviewed.filter((page) => !covered.has(page.id));
         if (missing.length > 0 && ranked.length < k) {
-          const extra = rankByKeywords(needle, missing, k - ranked.length).filter(
+          const missingDocs = missing.map((page) => ({
+            pageId: page.id,
+            topicId: page.topicId,
+            subjectId: page.subjectId,
+            text: page.text,
+          }));
+          const extra = rankByKeywords(needle, missingDocs, k - ranked.length).filter(
             (hit) => !ranked.some((row) => row.pageId === hit.pageId),
           );
           return { hits: [...ranked, ...extra].slice(0, k), mode: "semantic" };

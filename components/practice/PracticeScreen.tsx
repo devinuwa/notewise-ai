@@ -1,13 +1,15 @@
 "use client";
 
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ExamMode } from "@/components/exam/ExamMode";
 import { QuizPlay } from "@/components/practice/QuizPlay";
 import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/StateBlock";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import type { AttemptAnswer, QuizQuestion } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics } from "@/lib/demo";
+import { OFFLINE_QUIZ, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { isNotebookError, useNotebook } from "@/lib/use-notebook";
 import {
   fitQuestionCount,
@@ -33,6 +35,7 @@ type Round = {
 
 export function PracticeScreen() {
   const notebook = useNotebook();
+  const online = useSyncExternalStore(subscribeOnline, onlineSnapshot, onlineServerSnapshot);
   const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
   const [count, setCount] = useState<QuizCount>(5);
@@ -44,8 +47,8 @@ export function PracticeScreen() {
 
   if (!notebook) {
     return (
-      <main className="nw-page mx-auto grid w-full max-w-[760px] place-items-center">
-        <PixelLoader caption="Opening practice…" tone="on-paper" />
+      <main className="nw-page mx-auto w-full max-w-[760px]">
+        <LoadingState caption="Opening practice…" />
       </main>
     );
   }
@@ -53,9 +56,7 @@ export function PracticeScreen() {
   if (isNotebookError(notebook)) {
     return (
       <main className="nw-page mx-auto w-full max-w-[720px]">
-        <p className="text-lg text-ink" role="alert">
-          {notebook.error}
-        </p>
+        <ErrorState message={notebook.error} />
       </main>
     );
   }
@@ -72,6 +73,10 @@ export function PracticeScreen() {
   async function start(extra?: { subjectId: string; style: ExamStyle; styleLabel: string }) {
     const chosenId = extra?.subjectId || subjectId;
     if (!chosenId || phase === "loading") return;
+    if (!online) {
+      setError(OFFLINE_QUIZ);
+      return;
+    }
     const subject = readySubjects.find((item) => item.id === chosenId);
     if (!subject) return;
     setPhase("loading");
@@ -170,10 +175,16 @@ export function PracticeScreen() {
           <p className="mt-4 max-w-xl text-lg text-ink">
             Pick a subject, then a number of questions. Only reviewed pages are used. Exam mode, under this quiz, reads a past paper you already have.
           </p>
-          {readySubjects.length === 0 ? (
-            <p className="mt-6 border-2 border-ink bg-paper px-4 py-3 text-ink shadow-[4px_4px_0_var(--shadow)]">
-              Mark a page done before you practice. Pages that still need review stay out.
+          {!online ? (
+            <p className="mt-4 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+              {OFFLINE_QUIZ}
             </p>
+          ) : null}
+          {readySubjects.length === 0 ? (
+            <EmptyState
+              title="No reviewed pages yet"
+              body="Mark a page done before you practice. Pages that still need review stay out."
+            />
           ) : (
             <>
               <ChoiceRow label="Subject">
@@ -220,18 +231,14 @@ export function PracticeScreen() {
                 {phase === "loading" ? (
                   <PixelLoader caption="Writing questions from your notes…" tone="on-paper" />
                 ) : (
-                  <Button type="button" disabled={!subjectId} onClick={() => void start()}>
+                  <Button type="button" disabled={!subjectId || !online} onClick={() => void start()}>
                     Make quiz
                   </Button>
                 )}
               </div>
             </>
           )}
-          {error ? (
-            <p className="mt-4 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="alert">
-              {error}
-            </p>
-          ) : null}
+          {error ? <div className="mt-4"><ErrorState message={error} /></div> : null}
         </>
       ) : null}
 

@@ -134,7 +134,7 @@ Two modes on the Tutor tab:
 2. **Live:** full-screen voice conversation (details below).
 
 ### 4.8 Settings
-- Exam date (the home countdown uses it only after it is saved), Cloud or On-device handwriting, and Delete all data. Delete all data also clears the cloud-reading choice. Google Drive connect comes later.
+- Exam date (the home countdown uses it only after it is saved), Cloud or On-device handwriting, Google Drive backup/restore, and Delete all data. Delete all data also clears the cloud-reading choice.
 - Language, voice, and text size come later.
 - Development builds only: a yellow DEMO block with "Load demo notes". It is absent from production builds.
 

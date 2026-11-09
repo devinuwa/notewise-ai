@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
@@ -19,6 +19,7 @@ import { OcrConsentDialog } from "@/components/scan/OcrConsentDialog";
 import { getDb } from "@/lib/db";
 import { shownPages } from "@/lib/demo";
 import { saveReadingChoice } from "@/lib/notebook";
+import { OFFLINE_CLOUD_OCR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { kickOcrQueue } from "@/lib/ocr/queue";
 import { saveScanBatch } from "@/lib/scan/save-batch";
 
@@ -41,6 +42,7 @@ function revokePage(page: DraftPage) {
 
 export function ScanScreen() {
   const notebook = useNotebook();
+  const online = useSyncExternalStore(subscribeOnline, onlineSnapshot, onlineServerSnapshot);
   const router = useRouter();
   const liveCamera = useLiveCameraAvailable();
   const cameraInput = useRef<HTMLInputElement>(null);
@@ -203,7 +205,15 @@ export function ScanScreen() {
     setSaveError("");
     try {
       const settings = await getDb().settings.get("local");
-      if ((settings?.ocrMode ?? "cloud") === "cloud" && !settings?.aiConsent) {
+      const wantsCloud = (settings?.ocrMode ?? "cloud") === "cloud";
+      // Offline: cloud OCR cannot run — switch to on-device for this batch.
+      if (wantsCloud && !online) {
+        await saveReadingChoice({ aiConsent: settings?.aiConsent ?? false, ocrMode: "on-device" });
+        setSaveError(OFFLINE_CLOUD_OCR);
+        await saveAndOpen(subjectName, topicName);
+        return;
+      }
+      if (wantsCloud && !settings?.aiConsent) {
         setPlace({ subject: subjectName, topic: topicName });
         setStep("consent");
         return;
@@ -216,6 +226,11 @@ export function ScanScreen() {
   }
 
   async function chooseCloud() {
+    if (!online) {
+      setSaveError(OFFLINE_CLOUD_OCR);
+      await chooseDevice();
+      return;
+    }
     await saveReadingChoice({ aiConsent: true, ocrMode: "cloud" });
     if (!place) return;
     await saveAndOpen(place.subject, place.topic);

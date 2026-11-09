@@ -38,7 +38,12 @@ export function MiniPlayer() {
   const playing = listen.status === "playing";
 
   return (
-    <section ref={bar} className="listen-player" aria-label="Listen">
+    <section
+      ref={bar}
+      className="listen-player"
+      role="region"
+      aria-label={playing ? `Listening player, playing ${cue.label}` : `Listening player, paused on ${cue.label}`}
+    >
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <p className="nw-mono text-[12px] text-muted">{cue.label}</p>

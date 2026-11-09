@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSerwist } from "@serwist/turbopack";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -21,4 +22,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// @serwist/turbopack — documented Turbopack path for Next.js 16 (not webpack).
+export default withSerwist(nextConfig);

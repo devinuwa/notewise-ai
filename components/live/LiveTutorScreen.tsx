@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mic, MicOff, PhoneOff } from "lucide-react";
@@ -24,6 +24,7 @@ import { LiveSpeaker } from "@/lib/live/speak-live";
 import { LIVE_QUICK, LIVE_SILENCE_MS, type LivePhase } from "@/lib/live/types";
 import { isSpeechRate } from "@/lib/listen/rates";
 import { stopSpeaking } from "@/lib/listen/speak";
+import { OFFLINE_TUTOR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { search } from "@/lib/rag/search";
 import { plainTutorText } from "@/lib/tutor/plain";
 import { readTutorStream } from "@/lib/tutor/stream";
@@ -42,6 +43,9 @@ export function LiveTutorScreen() {
   const notebook = useNotebook();
   const listen = useListen();
   const router = useRouter();
+  const online = useSyncExternalStore(subscribeOnline, onlineSnapshot, onlineServerSnapshot);
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
   const [phase, setPhase] = useState<LivePhase>("idle");
   const [caption, setCaption] = useState("");
   const [captionKey, setCaptionKey] = useState(0);
@@ -282,6 +286,11 @@ export function LiveTutorScreen() {
   async function ask(raw: string) {
     const question = raw.trim();
     if (!question || busyRef.current) return;
+    if (!onlineRef.current) {
+      setError(OFFLINE_TUTOR);
+      resumeListening();
+      return;
+    }
     busyRef.current = true;
     pauseListening();
     speakerRef.current?.stop();
@@ -538,6 +547,12 @@ export function LiveTutorScreen() {
             </button>
           ) : null}
         </div>
+
+        {!online ? (
+          <p className="mt-4 max-w-md border-2 border-paper bg-yellow px-3 py-2 text-center text-sm text-ink" role="status">
+            {OFFLINE_TUTOR}
+          </p>
+        ) : null}
 
         <p
           key={captionKey}

@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { NAV_ITEMS, isActive } from "@/components/shell/nav";
+import { OfflineChip } from "@/components/pwa/OfflineChip";
 import { ReadingPill } from "@/components/shell/ReadingPill";
 import { Wordmark } from "@/components/shell/Wordmark";
 
@@ -29,7 +30,10 @@ export function Header() {
         Skip to content
       </a>
       <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <Wordmark />
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <Wordmark />
+          <OfflineChip />
+        </div>
         <ReadingPill />
         <nav className="hidden items-center gap-5 md:flex" aria-label="Main">
           {NAV_ITEMS.map((item) => (
@@ -48,9 +52,10 @@ export function Header() {
         </nav>
         <button
           type="button"
-          className="nw-btn nw-btn-secondary md:hidden"
+          className="nw-btn nw-btn-secondary min-h-11 md:hidden"
           aria-expanded={open}
           aria-controls="mobile-menu"
+          aria-label={open ? "Close menu" : "Open menu"}
           onClick={() => setMenuPath(open ? null : pathname)}
         >
           {open ? <X aria-hidden size={16} /> : <Menu aria-hidden size={16} />}

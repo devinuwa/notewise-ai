@@ -16,6 +16,8 @@ NoteWise is a local-first study companion for handwritten school notes. A studen
 - Tutor chat answers from the reviewed notes that match the question. The student can filter by subject, copy an answer, or listen to it. Live Tutor is a full-screen voice room: speak a question, hear a short answer from your notes, or type if speech recognition is unavailable.
 - Practice writes a 5, 10, or 20 question quiz from reviewed notes. A question is kept only when its quote is found in those notes. Exam mode reads a past paper the student uploads, describes its pattern, and writes practice in that style from the student's notes. The score updates Home, including weak topics.
 - Export all data (a JSON file) and Delete all data are on the home profile bar and in Settings.
+- Google Drive backup (optional): Connect with Google Identity Services, back up a JSON manifest to a NoteWise folder, optionally include page photos, and restore with Merge or Replace. Home subject cards show Backed up when pages have Drive file ids.
+- Installable PWA: add to home screen, service worker caches the app shell, fonts, icons, and the embedding model. Offline shows a chip and turns off cloud OCR, new tutor answers, new quizzes, and Drive until you reconnect. Privacy page explains what stays on the device.
 
 ## Stack
 
@@ -32,6 +34,7 @@ Free and open-source only:
 - [@huggingface/transformers](https://huggingface.co/docs/transformers.js) runs a small embedding model in the browser. It downloads once, then search works offline.
 - [Zod](https://zod.dev/) checks quiz and exam-pattern JSON before it is shown.
 - [PDF.js](https://mozilla.github.io/pdf.js/) reads a past-paper PDF in the browser.
+- [Serwist](https://serwist.pages.dev/) (`@serwist/turbopack`) builds the service worker for Next.js 16 + Turbopack.
 
 Cloud reading calls the free tier of Google AI Studio (Gemini). That service is not open source. The model name is an environment variable, so it can be changed without editing the app. The photo is sent only from the server route, and the API key never ships to the browser.
 
@@ -55,22 +58,49 @@ npm run build
 npm start
 ```
 
-On Vercel, import the GitHub repo and add the same two environment variables in the project settings. Do not commit `.env` or `.env.local`.
+On Vercel, import the GitHub repo and add the same environment variables in the project settings. Do not commit `.env` or `.env.local`.
 
 ## Environment variables
 
-Copy `.env.example` to `.env.local` for local work. Both values start empty.
+Copy `.env.example` to `.env.local` for local work. Values start empty.
 
 | Name | Purpose |
 | --- | --- |
 | `GEMINI_API_KEY` | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Server only. |
 | `GEMINI_MODEL` | Vision-capable Flash or Flash-Lite model id from the [model list](https://ai.google.dev/gemini-api/docs/models). A current fast name to paste is `gemini-3.5-flash-lite`. |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | OAuth 2.0 Web client id for Google Drive backup. Browser only. Optional until you use Drive. |
 
-If either value is missing, cloud reading stays off and the app falls back to on-device reading. On-device reading does not need a key. The English language file is served from this app and cached after the first read.
+If either Gemini value is missing, cloud reading stays off and the app falls back to on-device reading. On-device reading does not need a key. The English language file is served from this app and cached after the first read.
+
+If `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is missing, Connect Google Drive explains that Drive is not set up yet.
 
 A development build has a Load demo notes button in Settings. Those sample rows are marked DEMO, they are left out of Home counts and Stats, and a production build does not show them.
 
+## Google Drive OAuth client
+
+Drive backup uses Google Identity Services in the browser with the `https://www.googleapis.com/auth/drive.file` scope only. NoteWise can only see files it created. Tokens stay in memory and are revoked on Disconnect Drive.
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create or pick a project.
+2. Enable the **Google Drive API** (APIs & Services → Library).
+3. Configure the **OAuth consent screen** (External is fine for a school demo). Add yourself and any competition judges as test users while the app is in Testing.
+4. Create credentials → **OAuth client ID** → Application type **Web application**.
+5. Under Authorised JavaScript origins, add:
+   - `http://localhost:3000` for local work
+   - your production origin, for example `https://your-app.vercel.app`
+6. Copy the Client ID into `.env.local` as `NEXT_PUBLIC_GOOGLE_CLIENT_ID=...` (and into Vercel env vars for deploy).
+7. Restart `npm run dev` after changing env vars.
+
+Do not add broader Drive scopes. Do not put a client secret in the browser app.
+
+## Progressive Web App
+
+NoteWise uses **`@serwist/turbopack`** (not `@serwist/next` / webpack). The service worker is compiled by a Route Handler at `/serwist/sw.js`. With `cacheComponents: true`, that compile is wrapped in `"use cache"` so the worker is still prerendered at build time.
+
+Test offline with a production build (`npm run build` then `npm start`). The worker is disabled in `next dev` on purpose.
+
 ## Privacy
+
+Full student-facing copy lives at `/privacy`. Summary:
 
 - The student name, subjects, topics, photos, and corrected text stay in IndexedDB on that device.
 - Cloud reading sends the page photo to Google AI Studio after the student chooses “I understand, continue”. Free AI services may use submitted content to improve their products.
@@ -78,5 +108,6 @@ A development build has a Load demo notes button in Settings. Those sample rows 
 - Practice sends reviewed note excerpts so the quiz can be written. Exam mode also sends the reviewed text of a past paper when it describes the pattern. The server does not write those texts to its log. The quiz, the score, and the paper stay in IndexedDB. A past paper is left out of the JSON export unless the student ticks Include this past paper in a backup. Past papers belong to the exam bodies. This is for the student's own revision.
 - Do not scan pages with phone numbers, addresses, or other private details.
 - On-device reading keeps the photo on the phone. It is less accurate on handwriting.
-- Delete all data removes the local notebook and the cloud-reading choice. It does not delete anything that was already sent to Google, and it does not touch a future Drive backup.
+- Delete all data removes the local notebook and the cloud-reading choice. It does not delete anything that was already sent to Google, and it does not touch a Drive backup.
+- Google Drive backup sends a JSON manifest (and optional page photos) to a NoteWise folder the student owns. The OAuth token is short-lived and kept in memory only. Disconnect Drive revokes it. Past papers are included only when the student ticked Include this past paper in a backup.
 - The server route accepts JPEG, PNG, and WebP up to 4 MB, limits how often one address can call it, and does not write the photo or the transcription to the server log.

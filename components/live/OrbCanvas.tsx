@@ -155,11 +155,21 @@ export function OrbCanvas({
     };
   }, []);
 
+  const label =
+    phase === "listening"
+      ? "Tutor orb listening"
+      : phase === "thinking"
+        ? "Tutor orb thinking"
+        : phase === "speaking"
+          ? "Tutor orb speaking"
+          : "Tutor orb idle";
+
   return (
     <canvas
       ref={canvasRef}
       className="mx-auto block"
-      aria-hidden="true"
+      role="img"
+      aria-label={label}
       style={{ filter: reducedMotion ? "none" : "blur(0.2px)" }}
     />
   );

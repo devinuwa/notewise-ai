@@ -87,6 +87,13 @@ export async function saveListenPrefs(prefs: { voiceURI?: string; speechRate?: S
   await db.settings.put({ ...existing, ...prefs, id: "local" });
 }
 
+export async function saveTextSize(textSize: "md" | "lg" | "xl") {
+  const db = getDb();
+  const existing = await db.settings.get("local");
+  if (!existing?.name) return;
+  await db.settings.put({ ...existing, textSize, id: "local" });
+}
+
 /** A card is not started with no pages, needs review if any page does, backed up only when every page has a Drive id. */
 export function statusForPages(pages: NotePage[]): NoteStatus {
   if (pages.length === 0) return "not-started";

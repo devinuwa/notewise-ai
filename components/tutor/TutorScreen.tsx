@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useListen } from "@/components/listen/ListenProvider";
 import { ReviewedIndex, StudyBrainLoader } from "@/components/library/NoteSearch";
 import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/StateBlock";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { getDb, type ChatMessage, type ChatSource, type NotePage, type Subject, type Topic } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics } from "@/lib/demo";
 import { splitSentences } from "@/lib/listen/sentences";
+import { OFFLINE_TUTOR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { search } from "@/lib/rag/search";
 import { isNotebookError, useNotebook } from "@/lib/use-notebook";
 import { plainTutorText } from "@/lib/tutor/plain";
@@ -38,6 +40,7 @@ export function TutorScreen() {
   const notebook = useNotebook();
   const messages = useLiveQuery(loadMessages);
   const listen = useListen();
+  const online = useSyncExternalStore(subscribeOnline, onlineSnapshot, onlineServerSnapshot);
   const [subjectId, setSubjectId] = useState("");
   const [input, setInput] = useState("");
   const [phase, setPhase] = useState<Phase>("");
@@ -61,8 +64,8 @@ export function TutorScreen() {
 
   if (!notebook || !messages) {
     return (
-      <main className="nw-page mx-auto grid w-full max-w-[760px] place-items-center">
-        <PixelLoader caption="Opening the tutor…" tone="on-paper" />
+      <main className="nw-page mx-auto w-full max-w-[760px]">
+        <LoadingState caption="Opening the tutor…" />
       </main>
     );
   }
@@ -70,9 +73,7 @@ export function TutorScreen() {
   if (isNotebookError(notebook)) {
     return (
       <main className="nw-page mx-auto w-full max-w-[720px]">
-        <p className="text-lg text-ink" role="alert">
-          {notebook.error}
-        </p>
+        <ErrorState message={notebook.error} />
       </main>
     );
   }
@@ -80,22 +81,27 @@ export function TutorScreen() {
   const subjects = shownSubjects(notebook.subjects);
   const topics = shownTopics(notebook.topics);
   const pages = shownPages(notebook.pages);
+  const chat = messages;
   const busy = phase !== "";
-  const lastTutor = [...messages].reverse().find((message) => message.role === "tutor");
+  const lastTutor = [...chat].reverse().find((message) => message.role === "tutor");
 
   async function ask(raw: string) {
     const question = raw.trim();
     if (!question || busyRef.current) return;
+    if (!online) {
+      setError(OFFLINE_TUTOR);
+      return;
+    }
     busyRef.current = true;
     draftRef.current = "";
     setPhase("search");
     setError("");
     setConfirmClear(false);
     setDraft("");
-    const history = messages
+    const history = chat
       .slice(-6)
       .map((message) => ({ role: message.role, text: message.text }));
-    const lastUser = [...messages].reverse().find((message) => message.role === "user")?.text ?? "";
+    const lastUser = [...chat].reverse().find((message) => message.role === "user")?.text ?? "";
     // A follow-up chip is too short to search on its own, so the previous question stays in the search.
     const retrieval =
       (QUICK as readonly string[]).includes(question) && lastUser ? `${lastUser}. ${question}` : question;
@@ -289,13 +295,20 @@ export function TutorScreen() {
         </div>
       </div>
 
+      {!online ? (
+        <p className="mt-4 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+          {OFFLINE_TUTOR}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex flex-col gap-3" aria-live="polite">
-        {messages.length === 0 && !busy ? (
-          <p className="border-2 border-ink bg-paper px-4 py-3 text-ink shadow-[4px_4px_0_var(--shadow)]">
-            Ask about a reviewed note, such as how cells divide. Pages that still need review stay out.
-          </p>
+        {chat.length === 0 && !busy ? (
+          <EmptyState
+            title="No questions yet"
+            body="Ask about a reviewed note, such as how cells divide. Pages that still need review stay out."
+          />
         ) : null}
-        {messages.map((message) => (
+        {chat.map((message) => (
           <Bubble
             key={message.id}
             message={message}
@@ -329,7 +342,7 @@ export function TutorScreen() {
             key={label}
             type="button"
             className="nw-chip min-h-11 bg-paper text-ink disabled:opacity-60"
-            disabled={busy || !lastTutor}
+            disabled={busy || !lastTutor || !online}
             onClick={() => void ask(label)}
           >
             {label}
@@ -347,7 +360,7 @@ export function TutorScreen() {
           value={input}
           maxLength={1000}
           placeholder="Ask about mitosis or osmosis"
-          disabled={busy}
+          disabled={busy || !online}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -357,7 +370,7 @@ export function TutorScreen() {
           }}
         />
         <div className="mt-3 flex flex-wrap gap-3">
-          <Button type="submit" disabled={busy || !input.trim()}>
+          <Button type="submit" disabled={busy || !online || !input.trim()}>
             Ask
           </Button>
           {confirmClear ? (
@@ -370,7 +383,7 @@ export function TutorScreen() {
               </Button>
             </>
           ) : (
-            <Button type="button" variant="secondary" disabled={busy || messages.length === 0} onClick={() => setConfirmClear(true)}>
+            <Button type="button" variant="secondary" disabled={busy || chat.length === 0} onClick={() => setConfirmClear(true)}>
               Clear chat
             </Button>
           )}

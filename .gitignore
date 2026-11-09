@@ -23,6 +23,8 @@ node_modules/
 # misc
 .DS_Store
 *.pem
+lighthouse-report.json
+lighthouse-pwa.json
 
 # debug
 npm-debug.log*

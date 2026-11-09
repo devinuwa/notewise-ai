@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { PixelLoader } from "@/components/ui/PixelLoader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/StateBlock";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ListenButton } from "@/components/listen/ListenButton";
 import { SpokenText } from "@/components/listen/SpokenText";
@@ -33,8 +33,8 @@ export function LibraryScreen() {
 
   if (!notebook) {
     return (
-      <main className="nw-page mx-auto grid w-full max-w-[1100px] place-items-center">
-        <PixelLoader caption="Opening your library…" tone="on-paper" />
+      <main className="nw-page mx-auto w-full max-w-[1100px]">
+        <LoadingState caption="Opening your library…" />
       </main>
     );
   }
@@ -42,9 +42,7 @@ export function LibraryScreen() {
   if (isNotebookError(notebook)) {
     return (
       <main className="nw-page mx-auto w-full max-w-[720px]">
-        <p className="text-lg text-ink" role="alert">
-          {notebook.error}
-        </p>
+        <ErrorState message={notebook.error} />
       </main>
     );
   }
@@ -141,7 +139,7 @@ function SubjectGrid({
   if (subjects.length === 0) {
     return (
       <div className="mt-6">
-        <p className="text-lg text-ink">No subjects yet. Scan a page and it will show up here.</p>
+        <EmptyState title="Empty library" body="No subjects yet. Scan a page and it will show up here." />
         <div className="mt-4">
           <Button href="/scan">Scan a page</Button>
         </div>
@@ -201,7 +199,11 @@ function TopicList({ subject, topics, pages }: { subject: Subject; topics: Topic
         pages={pages.filter((page) => page.subjectId === subject.id)}
         topics={topics}
       />
-      {topics.length === 0 ? <p className="mt-4 text-lg text-ink">This subject has no topics yet.</p> : null}
+      {topics.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState title="No topics" body="This subject has no topics yet." />
+        </div>
+      ) : null}
       <ul className="mt-4 flex flex-col gap-3">
         {topics.map((topic) => {
           const count = pages.filter((page) => page.topicId === topic.id).length;
@@ -263,7 +265,11 @@ function PageGrid({ subject, topic, pages }: { subject: Subject; topic: Topic; p
       <h2 className="nw-display mt-4 text-[clamp(28px,6vw,48px)] text-ink">{topic.name}</h2>
       <ExportBar subject={subject} topic={topic} pages={pages} topics={[topic]} />
       <ListenButton subjectName={subject.name} pages={pages} topics={[topic]} />
-      {pages.length === 0 ? <p className="mt-4 text-lg text-ink">This topic has no pages yet.</p> : null}
+      {pages.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState title="No pages" body="This topic has no pages yet." />
+        </div>
+      ) : null}
       <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {pages.map((page) => (
           <li key={page.id} className="border-2 border-ink bg-paper p-2">

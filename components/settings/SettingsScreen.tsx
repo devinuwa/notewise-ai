@@ -1,16 +1,20 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { DrivePanel } from "@/components/drive/DrivePanel";
 import { ClearDataDialog } from "@/components/home/ClearDataDialog";
 import { Button } from "@/components/ui/Button";
-import { PixelLoader } from "@/components/ui/PixelLoader";
+import { ErrorState, LoadingState } from "@/components/ui/StateBlock";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ListenSettings } from "@/components/listen/ListenSettings";
 import { AccuracyPanel } from "@/components/settings/AccuracyPanel";
 import { clearAllData, type OcrMode } from "@/lib/db";
 import { isSpeechRate } from "@/lib/listen/rates";
-import { examDateFromInput, examDateInputValue, saveExamDate, saveReadingChoice } from "@/lib/notebook";
+import { examDateFromInput, examDateInputValue, saveExamDate, saveReadingChoice, saveTextSize } from "@/lib/notebook";
+import { OFFLINE_CLOUD_OCR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
+import { isTextSize, TEXT_SIZE_LABEL, TEXT_SIZES, type TextSize } from "@/lib/text-size";
 import { isNotebookError, useNotebook, useTitleCaseStoredName } from "@/lib/use-notebook";
 
 const showDemo = process.env.NODE_ENV !== "production";
@@ -68,8 +72,8 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
 
   if (!snapshot) {
     return (
-      <main className="nw-page mx-auto grid w-full max-w-[720px] place-items-center">
-        <PixelLoader caption="Opening settings…" tone="on-paper" />
+      <main className="nw-page mx-auto w-full max-w-[720px]">
+        <LoadingState caption="Opening settings…" />
       </main>
     );
   }
@@ -77,9 +81,7 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
   if (isNotebookError(snapshot)) {
     return (
       <main className="nw-page mx-auto w-full max-w-[720px]">
-        <p className="text-lg text-ink" role="alert">
-          {snapshot.error}
-        </p>
+        <ErrorState message={snapshot.error} />
       </main>
     );
   }
@@ -129,11 +131,19 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
       )}
 
       <ReadingMode mode={snapshot.settings?.ocrMode ?? "cloud"} consented={snapshot.settings?.aiConsent ?? false} />
+      <TextSizeSetting value={isTextSize(snapshot.settings?.textSize) ? snapshot.settings.textSize : "md"} />
       <ListenSettings
         rate={isSpeechRate(snapshot.settings?.speechRate) ? snapshot.settings.speechRate : 1}
         voiceURI={snapshot.settings?.voiceURI ?? ""}
       />
+      <DrivePanel />
       <AccuracyPanel pages={snapshot.pages} />
+      <p className="mt-8 text-base text-ink">
+        <Link href="/privacy" className="font-semibold underline decoration-2 underline-offset-4">
+          Privacy
+        </Link>{" "}
+        — what stays on this device, what is sent to AI, and how to delete everything.
+      </p>
 
       <form onSubmit={onExam} className="mt-8 flex flex-col gap-4">
         <label className="nw-mono text-[12px] text-muted" htmlFor="exam-date">
@@ -206,9 +216,14 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
 function ReadingMode({ mode, consented }: { mode: OcrMode; consented: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const online = useSyncExternalStore(subscribeOnline, onlineSnapshot, onlineServerSnapshot);
 
   async function choose(next: OcrMode) {
     if (next === mode) return;
+    if (next === "cloud" && !online) {
+      setError(OFFLINE_CLOUD_OCR);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -229,13 +244,18 @@ function ReadingMode({ mode, consented }: { mode: OcrMode; consented: boolean })
         Cloud sends the photo to Google AI Studio. On-device keeps the photo on this phone. On-device handwriting
         accuracy is lower.
       </p>
+      {!online ? (
+        <p className="mt-3 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+          {OFFLINE_CLOUD_OCR}
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-col gap-3 sm:flex-row" role="group" aria-labelledby="reading-mode">
         <Button
           type="button"
           className="w-full sm:w-auto"
           variant={mode === "cloud" ? "primary" : "secondary"}
           aria-pressed={mode === "cloud"}
-          disabled={busy}
+          disabled={busy || !online}
           onClick={() => void choose("cloud")}
         >
           Cloud
@@ -250,6 +270,53 @@ function ReadingMode({ mode, consented }: { mode: OcrMode; consented: boolean })
         >
           On-device
         </Button>
+      </div>
+      {error ? (
+        <p className="mt-3 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function TextSizeSetting({ value }: { value: TextSize }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function choose(next: TextSize) {
+    if (next === value) return;
+    setBusy(true);
+    setError("");
+    try {
+      await saveTextSize(next);
+    } catch {
+      setError("Text size could not be saved.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="mt-8">
+      <p className="nw-mono text-[12px] text-muted" id="text-size">
+        Text size
+      </p>
+      <p className="mt-2 max-w-xl text-base text-ink">Makes body text larger across NoteWise on this device.</p>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row" role="group" aria-labelledby="text-size">
+        {TEXT_SIZES.map((size) => (
+          <Button
+            key={size}
+            type="button"
+            className="w-full sm:w-auto"
+            variant={value === size ? "primary" : "secondary"}
+            aria-pressed={value === size}
+            disabled={busy}
+            onClick={() => void choose(size)}
+          >
+            {TEXT_SIZE_LABEL[size]}
+          </Button>
+        ))}
       </div>
       {error ? (
         <p className="mt-3 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="alert">

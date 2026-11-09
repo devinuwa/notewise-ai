@@ -199,6 +199,12 @@ export interface Settings {
   speechRate?: SpeechRate;
   /** How many Live Tutor visits asked at least one question. */
   liveTutorSessions?: number;
+  /** Google Drive folder this app created. Token itself stays in memory only. */
+  driveFolderId?: string;
+  /** Manifest JSON file id inside that folder. */
+  driveManifestId?: string;
+  /** Body text size preference (root font-size). */
+  textSize?: "md" | "lg" | "xl";
 }
 
 class NoteWiseDB extends Dexie {

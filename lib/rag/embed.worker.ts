@@ -21,7 +21,7 @@ if (wasm) wasm.numThreads = 1;
 let extractor: FeatureExtractionPipeline | null = null;
 let loading: Promise<void> | null = null;
 
-const scope = self as DedicatedWorkerGlobalScope;
+const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 function plainProgress(update: object): ProgressNote {
   const note = update as ProgressNote;
