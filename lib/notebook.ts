@@ -3,6 +3,7 @@ import { isDemoId } from "@/lib/demo";
 import type { SpeechRate } from "@/lib/listen/rates";
 import { titleCaseName } from "@/lib/name";
 import type { NoteStatus } from "@/lib/status";
+import type { TutorLanguage } from "@/lib/tutor/languages";
 
 export interface NotebookSnapshot {
   settings: Settings | null;
@@ -85,6 +86,13 @@ export async function saveListenPrefs(prefs: { voiceURI?: string; speechRate?: S
   const existing = await db.settings.get("local");
   if (!existing?.name) return;
   await db.settings.put({ ...existing, ...prefs, id: "local" });
+}
+
+export async function saveTutorLanguage(tutorLanguage: TutorLanguage) {
+  const db = getDb();
+  const existing = await db.settings.get("local");
+  if (!existing?.name) return;
+  await db.settings.put({ ...existing, tutorLanguage, id: "local" });
 }
 
 export async function saveTextSize(textSize: "md" | "lg" | "xl") {

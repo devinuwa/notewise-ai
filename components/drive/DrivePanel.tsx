@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { backupToDrive } from "@/lib/drive/backup";
 import { driveConfigured, friendlyDriveError } from "@/lib/drive/errors";
-import { connectDrive, disconnectDrive, getDriveToken, subscribeDriveToken } from "@/lib/drive/gis";
+import { disconnectDrive, ensureDriveToken, getDriveToken, subscribeDriveToken } from "@/lib/drive/gis";
 import { assertRestoreChoice, listDriveBackups, restoreFromDrive } from "@/lib/drive/restore";
 import type { DriveFile, RestoreMode } from "@/lib/drive/types";
 import { OFFLINE_DRIVE, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
@@ -36,9 +36,10 @@ export function DrivePanel({ compact = false }: { compact?: boolean }) {
       setError(OFFLINE_DRIVE);
       return;
     }
-    setBusy("Connecting to Google Drive…");
+    // Prefer a quiet reconnect when Google already remembers this app (no full consent UI).
+    setBusy("Connecting to Google Drive… Leave any Google window open until it closes itself.");
     try {
-      await connectDrive("consent");
+      await ensureDriveToken();
       setMessage("Google Drive is connected on this device until you leave or disconnect.");
     } catch (caught) {
       setError(friendlyDriveError(caught));

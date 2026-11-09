@@ -1,8 +1,9 @@
 import { openGeminiStream, readGeminiSetup } from "@/lib/ai/adapter";
 import { handleExamProfile } from "@/lib/exam/analyse";
 import { handleQuiz } from "@/lib/ai/quiz";
-import { TUTOR_SPOKEN_EXTRA, TUTOR_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { TUTOR_SPOKEN_EXTRA, tutorSystemPrompt } from "@/lib/ai/prompts";
 import { notesForPrompt, parseTutorRequest, type TutorTurn } from "@/lib/tutor/request";
+import { tutorLanguageOrDefault } from "@/lib/tutor/languages";
 
 export const maxDuration = 60;
 
@@ -95,7 +96,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "The tutor is not set up on this computer yet." }, { status: 503 });
   }
 
-  const system = parsed.value.spoken ? `${TUTOR_SYSTEM_PROMPT}${TUTOR_SPOKEN_EXTRA}` : TUTOR_SYSTEM_PROMPT;
+  const language = tutorLanguageOrDefault(parsed.value.language);
+  const base = tutorSystemPrompt(language);
+  const system = parsed.value.spoken ? `${base}${TUTOR_SPOKEN_EXTRA}` : base;
   const upstream = await openGeminiStream(
     setup,
     {

@@ -131,7 +131,7 @@ export async function connectDrive(prompt: "" | "consent" = "consent"): Promise<
           if (/unverified|tested|not completed/i.test(detail)) {
             reject(
               new DriveError(
-                'Google shows "unverified app" while NoteWise is in Testing. Click Advanced, then Go to NoteWise (unsafe). Only do this if you are a listed test user.',
+                'Google shows "unverified app" while NoteWise is in Testing. Click Continue (not Back to safety). Only do this if you are a listed test user.',
               ),
             );
             return;
@@ -144,7 +144,11 @@ export async function connectDrive(prompt: "" | "consent" = "consent"): Promise<
       },
       error_callback: (error) => {
         if (error.type === "popup_closed") {
-          reject(new DriveError("Google Drive sign-in was closed before it finished."));
+          reject(
+            new DriveError(
+              "Google Drive sign-in closed before it finished. Leave the Google window open until it closes itself (even if it looks blank), click Continue on any unverified-app warning, then try Connect again.",
+            ),
+          );
           return;
         }
         if (error.type === "popup_failed" || /popup/i.test(error.message ?? "")) {

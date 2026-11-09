@@ -3,6 +3,7 @@ import type { ExamBody } from "@/lib/exam/bodies";
 import type { SpeechRate } from "@/lib/listen/rates";
 import { titleCaseName } from "@/lib/name";
 import type { FlaggedWord } from "@/lib/ocr/types";
+import type { TutorLanguage } from "@/lib/tutor/languages";
 
 export type PageStatus = "needs-review" | "digitized";
 export type OcrMode = "cloud" | "on-device";
@@ -197,6 +198,8 @@ export interface Settings {
   /** speechSynthesis voiceURI. Empty until the student picks one. */
   voiceURI?: string;
   speechRate?: SpeechRate;
+  /** Tutor explanation language (Beta). Default English when unset. */
+  tutorLanguage?: TutorLanguage;
   /** How many Live Tutor visits asked at least one question. */
   liveTutorSessions?: number;
   /** Google Drive folder this app created. Token itself stays in memory only. */

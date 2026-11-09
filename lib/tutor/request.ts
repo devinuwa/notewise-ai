@@ -8,12 +8,16 @@ export type TutorChunk = {
   text: string;
 };
 
+import { isTutorLanguage, type TutorLanguage } from "@/lib/tutor/languages";
+
 export type TutorRequest = {
   question: string;
   history: TutorTurn[];
   chunks: TutorChunk[];
   /** Live Tutor: short spoken answers, no markdown. */
   spoken?: boolean;
+  /** Tutor explanation language from Settings (Beta). */
+  language?: TutorLanguage;
 };
 
 const QUESTION_MAX = 1000;
@@ -80,7 +84,8 @@ export function parseTutorRequest(body: unknown): TutorParse {
   }
 
   const spoken = record.spoken === true;
-  return { ok: true, value: { question, history, chunks, spoken } };
+  const language = isTutorLanguage(record.language) ? record.language : "en";
+  return { ok: true, value: { question, history, chunks, spoken, language } };
 }
 
 /** Retrieved notes stay in their own block, outside the system prompt. */

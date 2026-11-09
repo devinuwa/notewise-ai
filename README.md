@@ -97,7 +97,7 @@ Drive backup uses Google Identity Services in the browser with the `https://www.
 7. Add the same variable on Vercel for **Production** and **Preview** (Project → Settings → Environment Variables), then redeploy.
 8. Restart `npm run dev` after changing local env vars.
 
-**Testing mode tip:** Google may show “Google hasn’t verified this app.” Click **Advanced**, then **Go to NoteWise (unsafe)** — only if your Google account is listed as a test user.
+**Testing mode tip:** Google may show “Google hasn’t verified this app.” Click **Continue** (not **Back to safety**) — only if your Google account is listed as a test user. Older Google screens may say **Advanced**, then **Go to NoteWise (unsafe)** instead.
 
 **Backup contents:** subjects, topics, page text and metadata, quizzes, tutor chat, and exam profiles (past papers only when the student ticked include-in-backup). Photos upload only when **Include photos** is ticked. Restore asks **Merge** or **Replace**; Merge keeps newer local edits.
 

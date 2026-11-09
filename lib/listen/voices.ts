@@ -94,6 +94,17 @@ export function preferredVoice(voices: SpeechSynthesisVoice[], savedURI?: string
   return voices.find((voice) => langOf(voice).startsWith("en")) ?? voices[0] ?? null;
 }
 
+/** Only returns a voice whose lang matches one of the BCP-47 prefixes. No silent English fallback. */
+export function voiceForLanguageTags(voices: SpeechSynthesisVoice[], tags: string[], savedURI?: string) {
+  const prefixes = tags.map((tag) => tag.replace(/_/g, "-").toLowerCase());
+  const matches = (voice: SpeechSynthesisVoice) => prefixes.some((tag) => langOf(voice).startsWith(tag));
+  if (savedURI) {
+    const saved = voices.find((voice) => voice.voiceURI === savedURI && matches(voice));
+    if (saved) return saved;
+  }
+  return voices.find(matches) ?? null;
+}
+
 export function orderedVoices(voices: SpeechSynthesisVoice[]) {
   const rank = (voice: SpeechSynthesisVoice) => {
     const lang = langOf(voice);

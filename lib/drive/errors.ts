@@ -28,13 +28,13 @@ export function friendlyDriveError(caught: unknown) {
     return "The Google sign-in window was blocked. Allow popups for this site, then Connect Google Drive again.";
   }
   if (/popup_closed|closed before/i.test(message)) {
-    return "Google Drive sign-in was closed before it finished.";
+    return "Google Drive sign-in closed before it finished. Leave the Google window open until it closes itself (even if it looks blank), click Continue on any unverified-app warning, then try Connect again.";
   }
   if (/access_denied|permission was denied|insufficient|permission/i.test(message)) {
     return "Google Drive permission was denied. Connect again and allow NoteWise to save files it creates.";
   }
   if (/unverified|hasn.?t verified|not verified|app is currently being tested/i.test(message)) {
-    return 'Google shows "unverified app" while NoteWise is in Testing. Click Advanced, then Go to NoteWise (unsafe). Only do this if you are a listed test user.';
+    return 'Google shows "unverified app" while NoteWise is in Testing. Click Continue (not Back to safety). Only do this if you are a listed test user.';
   }
   if (/origin|redirect_uri|javascript origin|unauthorized.?client|invalid.?client/i.test(message)) {
     return origin
