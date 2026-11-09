@@ -1,12 +1,5 @@
-import { Placeholder } from "@/components/shell/Placeholder";
+import { PracticeScreen } from "@/components/practice/PracticeScreen";
 
 export default function PracticePage() {
-  return (
-    <Placeholder
-      kicker="Practice"
-      title="Questions from your"
-      highlight="notes"
-      body="Quizzes and exam-style practice will be built from the pages you correct."
-    />
-  );
+  return <PracticeScreen />;
 }

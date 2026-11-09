@@ -11,6 +11,22 @@ export function readGeminiSetup(): GeminiSetup | null {
   return { apiKey, model };
 }
 
+/** One JSON answer. Practice uses this so the quiz can be checked before it is shown. */
+export function openGeminiContent(setup: GeminiSetup, body: unknown, signal?: AbortSignal) {
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(setup.model)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": setup.apiKey,
+      },
+      body: JSON.stringify(body),
+      signal,
+    },
+  );
+}
+
 export function openGeminiStream(setup: GeminiSetup, body: unknown, signal?: AbortSignal) {
   return fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(setup.model)}:streamGenerateContent?alt=sse`,

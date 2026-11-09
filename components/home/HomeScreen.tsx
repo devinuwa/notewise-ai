@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useRouter } from "next/navigation";
 import { ActivitiesSection } from "@/components/home/ActivitiesSection";
+import { WeakTopics } from "@/components/home/WeakTopics";
 import { ClearDataDialog } from "@/components/home/ClearDataDialog";
 import { EmptyNotebook } from "@/components/home/EmptyNotebook";
 import { Hero } from "@/components/home/Hero";
@@ -18,6 +19,7 @@ import { clearAllData } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics, withoutDemoPages, withoutDemoSubjects } from "@/lib/demo";
 import { heroSubtext } from "@/lib/home-copy";
 import { activityProgress, noteCards, saveStudentName } from "@/lib/notebook";
+import { finishedQuizQuestions } from "@/lib/practice/store";
 import { countTutorQuestions } from "@/lib/tutor/store";
 import { isNotebookError, useNotebook, useTitleCaseStoredName } from "@/lib/use-notebook";
 
@@ -36,6 +38,7 @@ function HomeBody({ onClear }: { onClear: () => void }) {
   const reduce = useSyncExternalStore(subscribeReduced, reducedSnapshot, () => false);
   const snapshot = useNotebook();
   const asked = useLiveQuery(() => countTutorQuestions()) ?? 0;
+  const quizzed = useLiveQuery(() => finishedQuizQuestions()) ?? 0;
   const [exportError, setExportError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const storedName = snapshot && !isNotebookError(snapshot) ? snapshot.settings?.name : undefined;
@@ -72,7 +75,7 @@ function HomeBody({ onClear }: { onClear: () => void }) {
   const countedSubjects = withoutDemoSubjects(snapshot.subjects);
   const pages = shownPages(snapshot.pages);
   const cards = noteCards(shownSubjects(snapshot.subjects), shownTopics(snapshot.topics), pages);
-  const activities = activityProgress(countedPages, asked);
+  const activities = activityProgress(countedPages, asked, quizzed);
   const subtext = heroSubtext(countedPages.length, countedSubjects.length, snapshot.settings?.examDate);
 
   return (
@@ -94,6 +97,7 @@ function HomeBody({ onClear }: { onClear: () => void }) {
         </Reveal>
       </div>
       {pages.length === 0 ? <EmptyNotebook reduce={reduce} /> : <NotesSection cards={cards} reduce={reduce} />}
+      <WeakTopics reduce={reduce} />
       <ActivitiesSection activities={activities} reduce={reduce} />
       <ClearDataDialog
         open={confirmClear}

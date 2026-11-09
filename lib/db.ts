@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { ExamBody } from "@/lib/exam/bodies";
 import type { SpeechRate } from "@/lib/listen/rates";
 import { titleCaseName } from "@/lib/name";
 import type { FlaggedWord } from "@/lib/ocr/types";
@@ -61,6 +62,52 @@ export interface ChatSource {
   label: string;
 }
 
+export type QuizDifficulty = "mixed" | "easy" | "hard";
+export type QuestionDifficulty = "easy" | "hard";
+
+/** One checked question. sourceQuote was found in the notes before it was saved. */
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  answerIndex: number;
+  explanation: string;
+  topic: string;
+  difficulty: QuestionDifficulty;
+  sourceQuote: string;
+  pageId?: string;
+  topicId?: string;
+  subjectId?: string;
+}
+
+export interface Quiz {
+  id: string;
+  subjectId: string;
+  topicId?: string;
+  difficulty: QuizDifficulty;
+  requestedCount: number;
+  questions: QuizQuestion[];
+  createdAt: number;
+  note?: string;
+  /** Set when the quiz follows a past-paper pattern. The questions still come from the notes. */
+  styleLabel?: string;
+}
+
+export interface AttemptAnswer {
+  questionId: string;
+  topic: string;
+  correct: boolean;
+}
+
+export interface Attempt {
+  id: string;
+  quizId: string;
+  takenAt: number;
+  total: number;
+  correct: number;
+  answers: AttemptAnswer[];
+}
+
 /** A saved tutor turn. User rows are what Home counts as questions. */
 export interface ChatMessage {
   id: string;
@@ -82,6 +129,65 @@ export interface Chunk {
   createdAt: number;
 }
 
+export type ExamSheetSource = "photo" | "pdf-text" | "pdf-ocr";
+export type ExamPaperStatus = "reading" | "needs-review" | "ready";
+
+/** One uploaded past paper. It is not a library note, and it is not indexed for search. */
+export interface ExamPaper {
+  id: string;
+  examBody: ExamBody;
+  subjectName: string;
+  year: number;
+  /** Off unless the student ticks the backup box. Export and any future Drive sync must obey this. */
+  includeInDrive: boolean;
+  status: ExamPaperStatus;
+  createdAt: number;
+}
+
+export interface ExamSheet {
+  id: string;
+  paperId: string;
+  pageNumber: number;
+  imageBlob: Blob;
+  rawOcrText: string;
+  text: string;
+  flaggedWords: FlaggedWord[];
+  ocrProvider: string;
+  ocrStatus: OcrStatus;
+  source: ExamSheetSource;
+  status: PageStatus;
+  createdAt: number;
+  flagsFixed?: number;
+  ocrError?: string;
+}
+
+export interface ExamSample {
+  question: string;
+  options: string[];
+}
+
+export interface ExamProfile {
+  id: string;
+  paperId: string;
+  examBody: ExamBody;
+  subjectName: string;
+  year: number;
+  includeInDrive: boolean;
+  optionCount: number;
+  averageQuestionLength: number;
+  questionTypes: {
+    recall: number;
+    calculation: number;
+    comprehension: number;
+    application: number;
+  };
+  topics: { topic: string; count: number }[];
+  difficultyMix: { easy: number; hard: number };
+  wordingPatterns: string[];
+  samples: ExamSample[];
+  createdAt: number;
+}
+
 export interface Settings {
   id: "local";
   name: string;
@@ -91,6 +197,8 @@ export interface Settings {
   /** speechSynthesis voiceURI. Empty until the student picks one. */
   voiceURI?: string;
   speechRate?: SpeechRate;
+  /** How many Live Tutor visits asked at least one question. */
+  liveTutorSessions?: number;
 }
 
 class NoteWiseDB extends Dexie {
@@ -101,6 +209,11 @@ class NoteWiseDB extends Dexie {
   ocrCache!: Table<OcrCacheRow, string>;
   chunks!: Table<Chunk, string>;
   chatMessages!: Table<ChatMessage, string>;
+  quizzes!: Table<Quiz, string>;
+  attempts!: Table<Attempt, string>;
+  examPapers!: Table<ExamPaper, string>;
+  examSheets!: Table<ExamSheet, string>;
+  examProfiles!: Table<ExamProfile, string>;
 
   constructor() {
     super("notewise");
@@ -163,6 +276,17 @@ class NoteWiseDB extends Dexie {
     });
     this.version(5).stores({
       chatMessages: "id, role, createdAt",
+    });
+    // Version 2 removed the unused quiz tables. Version 6 creates the real ones.
+    this.version(6).stores({
+      quizzes: "id, subjectId, topicId, createdAt",
+      attempts: "id, quizId, takenAt",
+    });
+    // Version 2 dropped the unused examProfiles store. Version 7 creates the real past-paper tables.
+    this.version(7).stores({
+      examPapers: "id, examBody, subjectName, year, createdAt",
+      examSheets: "id, paperId, pageNumber, status",
+      examProfiles: "id, paperId, examBody, subjectName, createdAt",
     });
   }
 }

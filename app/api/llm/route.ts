@@ -1,8 +1,10 @@
 import { openGeminiStream, readGeminiSetup } from "@/lib/ai/adapter";
-import { TUTOR_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { handleExamProfile } from "@/lib/exam/analyse";
+import { handleQuiz } from "@/lib/ai/quiz";
+import { TUTOR_SPOKEN_EXTRA, TUTOR_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { notesForPrompt, parseTutorRequest, type TutorTurn } from "@/lib/tutor/request";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const WINDOW_MS = 60_000;
 const LIMIT = 15;
@@ -79,6 +81,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "That question could not be sent." }, { status: 400 });
   }
 
+  const mode = body && typeof body === "object" && !Array.isArray(body) ? (body as { mode?: unknown }).mode : undefined;
+  if (mode === "exam-profile") return handleExamProfile(body, request.signal);
+  if (mode === "quiz") return handleQuiz(body, request.signal);
+
   const parsed = parseTutorRequest(body);
   if (!parsed.ok) {
     return Response.json({ error: parsed.error }, { status: parsed.status });
@@ -89,14 +95,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "The tutor is not set up on this computer yet." }, { status: 503 });
   }
 
+  const system = parsed.value.spoken ? `${TUTOR_SYSTEM_PROMPT}${TUTOR_SPOKEN_EXTRA}` : TUTOR_SYSTEM_PROMPT;
   const upstream = await openGeminiStream(
     setup,
     {
-      systemInstruction: { parts: [{ text: TUTOR_SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: system }] },
       contents: contentsFor(parsed.value.history, parsed.value.question, notesForPrompt(parsed.value.chunks)),
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 768,
+        maxOutputTokens: parsed.value.spoken ? 512 : 768,
         thinkingConfig: { thinkingLevel: "MINIMAL" },
       },
     },

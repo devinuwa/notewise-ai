@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export function PageImage({ blob, label }: { blob: Blob; label: string }) {
+export function PageImage({ blob, label, emptyLabel }: { blob: Blob; label: string; emptyLabel?: string }) {
   const url = useMemo(() => (blob.size ? URL.createObjectURL(blob) : ""), [blob]);
   const [open, setOpen] = useState(false);
 
@@ -15,7 +15,7 @@ export function PageImage({ blob, label }: { blob: Blob; label: string }) {
   if (!url) {
     return (
       <div className="grid min-h-48 place-items-center border-2 border-ink bg-page px-4 text-center text-ink">
-        This page has no photo.
+        {emptyLabel ?? "This page has no photo."}
       </div>
     );
   }

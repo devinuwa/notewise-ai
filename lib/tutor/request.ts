@@ -12,6 +12,8 @@ export type TutorRequest = {
   question: string;
   history: TutorTurn[];
   chunks: TutorChunk[];
+  /** Live Tutor: short spoken answers, no markdown. */
+  spoken?: boolean;
 };
 
 const QUESTION_MAX = 1000;
@@ -77,7 +79,8 @@ export function parseTutorRequest(body: unknown): TutorParse {
     chunks.push({ label, text });
   }
 
-  return { ok: true, value: { question, history, chunks } };
+  const spoken = record.spoken === true;
+  return { ok: true, value: { question, history, chunks, spoken } };
 }
 
 /** Retrieved notes stay in their own block, outside the system prompt. */

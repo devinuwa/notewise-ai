@@ -119,8 +119,8 @@ export function noteCards(subjects: Subject[], topics: Topic[], pages: NotePage[
     });
 }
 
-/** Quiz stays at zero until that screen writes records. Tutor counts saved questions. */
-export function activityProgress(pages: NotePage[], tutorQuestions = 0): ActivityProgress[] {
+/** Quiz progress is the longest finished attempt, capped at 10. Tutor counts saved questions. */
+export function activityProgress(pages: NotePage[], tutorQuestions = 0, quizQuestions = 0): ActivityProgress[] {
   return [
     { id: "scan", label: "Scan 5 pages", progress: pages.length, goal: 5 },
     {
@@ -129,7 +129,7 @@ export function activityProgress(pages: NotePage[], tutorQuestions = 0): Activit
       progress: pages.filter((page) => page.correctedAt).length,
       goal: 3,
     },
-    { id: "quiz", label: "Finish a 10-question quiz", progress: 0, goal: 10 },
+    { id: "quiz", label: "Finish a 10-question quiz", progress: Math.min(quizQuestions, 10), goal: 10 },
     { id: "tutor", label: "Ask the Tutor 3 questions", progress: tutorQuestions, goal: 3 },
     {
       id: "drive",

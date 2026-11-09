@@ -53,7 +53,22 @@ export function ReviewScreen({ pageId }: { pageId: string }) {
   if (page.ocrStatus === "queued" || page.ocrStatus === "reading" || page.ocrStatus === "error") {
     return <ReadProgress page={page} subject={subject} topic={topic} />;
   }
-  return <ReviewEditor key={`${page.id}-ready`} page={page} subject={subject} topic={topic} />;
+  return (
+    <CorrectionEditor
+      key={`${page.id}-ready`}
+      page={page}
+      kicker={`${subject?.name ?? "Note"}${topic ? ` · ${topic.name}` : ""}`}
+      doneLabel="Done, save to library"
+      doneCaption="Saved to your library"
+      doneHref={`/library/${page.subjectId}/${page.topicId}/${page.id}`}
+      doneLinkLabel="See it in the library"
+      backLabel="Back to the library"
+      backHref="/library"
+      showIndexHint
+      saveDraft={(draft) => savePageDraft(page.id, draft)}
+      markDone={(draft) => markPageDone(page.id, draft)}
+    />
+  );
 }
 
 function ReadProgress({
@@ -107,14 +122,50 @@ function ReadProgress({
   );
 }
 
-function ReviewEditor({
+export type CorrectionDraft = {
+  text: string;
+  flaggedWords: FlaggedWord[];
+  flagsFixed: number;
+};
+
+export function CorrectionEditor({
   page,
-  subject,
-  topic,
+  kicker,
+  doneLabel,
+  doneCaption,
+  doneHref,
+  doneLinkLabel,
+  backLabel,
+  backHref,
+  showIndexHint,
+  emptyPhoto,
+  minText = 0,
+  notice,
+  saveDraft,
+  markDone,
 }: {
-  page: NotePage;
-  subject: Subject | undefined;
-  topic: Topic | undefined;
+  page: {
+    id: string;
+    imageBlob: Blob;
+    text: string;
+    flaggedWords: FlaggedWord[];
+    flagsFixed?: number;
+    ocrStatus?: string;
+    ocrProvider?: string;
+  };
+  kicker: string;
+  doneLabel: string;
+  doneCaption: string;
+  doneHref: string;
+  doneLinkLabel: string;
+  backLabel: string;
+  backHref: string;
+  showIndexHint: boolean;
+  emptyPhoto?: string;
+  minText?: number;
+  notice?: string;
+  saveDraft: (draft: CorrectionDraft) => Promise<void>;
+  markDone: (draft: CorrectionDraft) => Promise<void>;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(asFlags(page.flaggedWords, page.text).length > 0 ? "flags" : "text");
@@ -126,26 +177,36 @@ function ReviewEditor({
   const [error, setError] = useState("");
   const dirty = useRef(false);
   const closed = useRef(false);
+  const saveDraftRef = useRef(saveDraft);
+
+  useEffect(() => {
+    saveDraftRef.current = saveDraft;
+  }, [saveDraft]);
 
   useEffect(() => {
     if (!dirty.current || closed.current) return;
     const snapshot = { text, flaggedWords: flags, flagsFixed: fixed };
     const handle = window.setTimeout(() => {
       if (closed.current) return;
-      void savePageDraft(page.id, snapshot)
+      void saveDraftRef.current(snapshot)
         .then(() => setSaved(true))
         .catch(() => setError("The correction could not be saved on this device."));
     }, 600);
     return () => window.clearTimeout(handle);
-  }, [text, flags, fixed, page.id]);
+  }, [text, flags, fixed]);
 
   async function finish() {
+    if (text.trim().length < minText) {
+      setError("Type the questions on this page before you finish.");
+      return;
+    }
     closed.current = true;
     setError("");
     try {
-      await markPageDone(page.id, { text, flaggedWords: flags, flagsFixed: fixed });
+      await markDone({ text, flaggedWords: flags, flagsFixed: fixed });
       setDone(true);
     } catch {
+      closed.current = false;
       setError("The page could not be marked done.");
     }
   }
@@ -154,39 +215,41 @@ function ReviewEditor({
     return (
       <main className="nw-page mx-auto grid min-h-[50vh] w-full max-w-[720px] place-items-center">
         <div className="text-center">
-          <PixelLoader caption="Saved to your library" tone="on-paper" />
-          <StudyBrainLoader />
+          <PixelLoader caption={doneCaption} tone="on-paper" />
+          {showIndexHint ? <StudyBrainLoader /> : null}
           <div className="mt-8">
-            <Button href={`/library/${page.subjectId}/${page.topicId}/${page.id}`}>See it in the library</Button>
+            <Button href={doneHref}>{doneLinkLabel}</Button>
           </div>
         </div>
       </main>
     );
   }
 
-  const label = `${subject?.name ?? "Note"} ${topic?.name ?? ""}`.trim();
+  const label = kicker;
 
   return (
     <main className="nw-page mx-auto w-full max-w-[1100px]">
-      <p className="nw-mono text-[12px] text-muted">
-        {subject?.name ?? "Note"}
-        {topic ? ` · ${topic.name}` : ""}
-      </p>
+      <p className="nw-mono text-[12px] text-muted">{kicker}</p>
       <div className="mt-3">
         <SectionHeading before="Check this" highlight="page" />
       </div>
-      <StudyBrainLoader />
+      {showIndexHint ? <StudyBrainLoader /> : null}
       {page.ocrStatus === "ready" ? <p className="nw-mono mt-3 text-[12px] text-ink">Ready</p> : null}
       {page.ocrProvider === "tesseract" ? (
         <p className="mt-3 max-w-xl border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
           This page was read on this phone. Handwriting accuracy is lower.
         </p>
       ) : null}
+      {notice ? (
+        <p className="mt-3 max-w-xl border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+          {notice}
+        </p>
+      ) : null}
       <p className="mt-3 text-base text-ink" role="status">
         {saved ? "Saved on this device." : "Saving…"}
       </p>
       <div className="mt-6 grid items-start gap-6 md:grid-cols-2">
-        <PageImage blob={page.imageBlob} label={label} />
+        <PageImage blob={page.imageBlob} label={label} emptyLabel={emptyPhoto} />
         <section>
           <div className="flex flex-col gap-3 sm:flex-row" role="group" aria-label="How to correct">
             <Button type="button" variant={mode === "flags" ? "primary" : "secondary"} aria-pressed={mode === "flags"} onClick={() => setMode("flags")}>
@@ -239,10 +302,10 @@ function ReviewEditor({
       ) : null}
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <Button type="button" className="w-full sm:w-auto" onClick={() => void finish()}>
-          Done, save to library
+          {doneLabel}
         </Button>
-        <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={() => router.push("/library")}>
-          Back to the library
+        <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={() => router.push(backHref)}>
+          {backLabel}
         </Button>
       </div>
     </main>
