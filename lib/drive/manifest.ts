@@ -93,6 +93,7 @@ export async function buildManifest(includePhotos: boolean, photoIds: Record<str
           examDate: settings.examDate,
           voiceURI: settings.voiceURI,
           speechRate: settings.speechRate,
+          tutorLanguage: settings.tutorLanguage,
         }
       : null,
     subjects: await db.subjects.toArray(),

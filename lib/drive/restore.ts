@@ -16,6 +16,7 @@ import { parseManifest } from "@/lib/drive/manifest";
 import type { SpeechRate } from "@/lib/listen/rates";
 import { isSpeechRate } from "@/lib/listen/rates";
 import { DRIVE_FOLDER_NAME, type NoteWiseManifest, type RestoreMode } from "@/lib/drive/types";
+import { isTutorLanguage } from "@/lib/tutor/languages";
 
 function stamp(page: { correctedAt?: number; createdAt: number }) {
   return page.correctedAt ?? page.createdAt;
@@ -197,6 +198,9 @@ export async function restoreFromDrive(fileId: string, mode: RestoreMode, onCapt
       speechRate:
         existing?.speechRate ??
         (isSpeechRate(manifest.settings.speechRate) ? (manifest.settings.speechRate as SpeechRate) : undefined),
+      tutorLanguage:
+        existing?.tutorLanguage ??
+        (isTutorLanguage(manifest.settings.tutorLanguage) ? manifest.settings.tutorLanguage : undefined),
       driveFolderId: existing?.driveFolderId,
       driveManifestId: fileId,
       liveTutorSessions: existing?.liveTutorSessions,

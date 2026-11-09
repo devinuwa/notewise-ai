@@ -44,6 +44,7 @@ export type NoteWiseManifest = {
     examDate?: number;
     voiceURI?: string;
     speechRate?: number;
+    tutorLanguage?: string;
   } | null;
   subjects: { id: string; name: string; color: string; createdAt: number }[];
   topics: { id: string; subjectId: string; name: string; createdAt: number }[];

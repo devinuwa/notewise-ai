@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { ErrorState, LoadingState } from "@/components/ui/StateBlock";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ListenSettings } from "@/components/listen/ListenSettings";
+import { TutorLanguageSettings } from "@/components/settings/TutorLanguageSettings";
+import { tutorLanguageOrDefault } from "@/lib/tutor/languages";
 import { AccuracyPanel } from "@/components/settings/AccuracyPanel";
 import { clearAllData, type OcrMode } from "@/lib/db";
 import { isSpeechRate } from "@/lib/listen/rates";
@@ -132,6 +134,7 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
 
       <ReadingMode mode={snapshot.settings?.ocrMode ?? "cloud"} consented={snapshot.settings?.aiConsent ?? false} />
       <TextSizeSetting value={isTextSize(snapshot.settings?.textSize) ? snapshot.settings.textSize : "md"} />
+      <TutorLanguageSettings value={tutorLanguageOrDefault(snapshot.settings?.tutorLanguage)} />
       <ListenSettings
         rate={isSpeechRate(snapshot.settings?.speechRate) ? snapshot.settings.speechRate : 1}
         voiceURI={snapshot.settings?.voiceURI ?? ""}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import {
   noVoiceForLanguageMessage,
   TUTOR_LANGUAGE_LABELS,
@@ -10,23 +9,12 @@ import {
   type TutorLanguage,
 } from "@/lib/tutor/languages";
 import { saveTutorLanguage } from "@/lib/notebook";
-import { getServerVoices, subscribeVoices, useVoices, voiceForLanguageTags } from "@/lib/listen/voices";
-
-function voicesSettledSnapshot() {
-  return useVoices;
-}
+import { useVoices, voiceForLanguageTags } from "@/lib/listen/voices";
 
 export function TutorLanguageSettings({ value }: { value?: TutorLanguage }) {
   const language = tutorLanguageOrDefault(value);
   const voices = useVoices();
-  // Re-subscribe so speech availability updates when the OS finishes loading voices.
-  useSyncExternalStore(subscribeVoices, () => voices.settled, () => false);
-  void voicesSettledSnapshot;
-  void getServerVoices;
-
-  const hasVoice = Boolean(
-    voiceForLanguageTags(voices.voices, TUTOR_LANGUAGE_VOICE_TAGS[language]),
-  );
+  const hasVoice = Boolean(voiceForLanguageTags(voices.voices, TUTOR_LANGUAGE_VOICE_TAGS[language]));
 
   return (
     <section className="mt-8">

@@ -24,8 +24,15 @@ import { LiveSpeaker } from "@/lib/live/speak-live";
 import { LIVE_QUICK, LIVE_SILENCE_MS, type LivePhase } from "@/lib/live/types";
 import { isSpeechRate } from "@/lib/listen/rates";
 import { stopSpeaking } from "@/lib/listen/speak";
+import { getVoiceSnapshot, voiceForLanguageTags } from "@/lib/listen/voices";
 import { OFFLINE_TUTOR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { search } from "@/lib/rag/search";
+import {
+  noVoiceForLanguageMessage,
+  TUTOR_LANGUAGE_VOICE_TAGS,
+  tutorLanguageOrDefault,
+  type TutorLanguage,
+} from "@/lib/tutor/languages";
 import { plainTutorText } from "@/lib/tutor/plain";
 import { readTutorStream } from "@/lib/tutor/stream";
 import { addChatMessage, bumpLiveTutorSession, makeChatMessage } from "@/lib/tutor/store";
@@ -81,6 +88,8 @@ export function LiveTutorScreen() {
   const pagesRef = useRef<NotePage[]>([]);
   const subjectsRef = useRef<Subject[]>([]);
   const topicsRef = useRef<Topic[]>([]);
+  const languageRef = useRef<TutorLanguage>("en");
+  const speakOkRef = useRef(true);
   const askRef = useRef<(question: string) => void>(() => undefined);
 
   phaseRef.current = phase;
@@ -127,8 +136,18 @@ export function LiveTutorScreen() {
     void (async () => {
       const settings = await getDb().settings.get("local").catch(() => undefined);
       const rate = settings && isSpeechRate(settings.speechRate) ? settings.speechRate : 1;
-      const voiceURI = settings?.voiceURI ?? "";
-      speaker.setVoice(rate, voiceURI);
+      const language = tutorLanguageOrDefault(settings?.tutorLanguage);
+      languageRef.current = language;
+      const matched = voiceForLanguageTags(
+        getVoiceSnapshot().voices,
+        TUTOR_LANGUAGE_VOICE_TAGS[language],
+        settings?.voiceURI,
+      );
+      speakOkRef.current = Boolean(matched);
+      speaker.setVoice(rate, matched?.voiceURI ?? "");
+      if (!matched && live) {
+        setError(noVoiceForLanguageMessage(language));
+      }
 
       const supported = speechRecognitionSupported();
       if (!supported) {
@@ -295,7 +314,19 @@ export function LiveTutorScreen() {
     pauseListening();
     speakerRef.current?.stop();
     stopSpeaking();
-    setError("");
+    // Re-check voices each turn — the OS list often arrives after the room opens.
+    const settings = await getDb().settings.get("local").catch(() => undefined);
+    const language = tutorLanguageOrDefault(settings?.tutorLanguage);
+    languageRef.current = language;
+    const matched = voiceForLanguageTags(
+      getVoiceSnapshot().voices,
+      TUTOR_LANGUAGE_VOICE_TAGS[language],
+      settings?.voiceURI,
+    );
+    speakOkRef.current = Boolean(matched);
+    const rate = settings && isSpeechRate(settings.speechRate) ? settings.speechRate : 1;
+    speakerRef.current?.setVoice(rate, matched?.voiceURI ?? "");
+    setError(matched ? "" : noVoiceForLanguageMessage(language));
     setSources([]);
     setSourcesOpen(false);
     setCaption(question);
@@ -361,7 +392,7 @@ export function LiveTutorScreen() {
       const response = await fetch("/api/llm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, history, chunks, spoken: true }),
+        body: JSON.stringify({ question, history, chunks, spoken: true, language: languageRef.current }),
         signal: controller.signal,
       });
       const type = response.headers.get("content-type") ?? "";
@@ -375,6 +406,11 @@ export function LiveTutorScreen() {
         await readTutorStream(response, (text) => {
           if (controller.signal.aborted) return;
           const plain = plainTutorText(text);
+          if (!speakOkRef.current) {
+            setCaption(plain);
+            setCaptionKey((value) => value + 1);
+            return;
+          }
           const { sentences, cursor } = readySentences(plain, spokenCursor, false);
           if (sentences.length > 0) {
             spokenCursor = cursor;
@@ -396,16 +432,24 @@ export function LiveTutorScreen() {
       if (controller.signal.aborted) return;
       const plain = plainTutorText(full);
       if (!plain) throw new Error("The tutor came back with an empty answer. Try again.");
-      const { sentences, cursor } = readySentences(plain, spokenCursor, true);
-      spokenCursor = cursor;
-      if (sentences.length > 0) {
-        if (!startedSpeaking) {
-          startedSpeaking = true;
-          setPhase("speaking");
-          phaseRef.current = "speaking";
-          if (!autoRef.current) pauseListening();
+      if (!speakOkRef.current) {
+        setCaption(plain);
+        setCaptionKey((value) => value + 1);
+        setPhase("listening");
+        phaseRef.current = "listening";
+        resumeListening();
+      } else {
+        const { sentences, cursor } = readySentences(plain, spokenCursor, true);
+        spokenCursor = cursor;
+        if (sentences.length > 0) {
+          if (!startedSpeaking) {
+            startedSpeaking = true;
+            setPhase("speaking");
+            phaseRef.current = "speaking";
+            if (!autoRef.current) pauseListening();
+          }
+          speakerRef.current?.enqueue(sentences);
         }
-        speakerRef.current?.enqueue(sentences);
       }
 
       await addChatMessage(

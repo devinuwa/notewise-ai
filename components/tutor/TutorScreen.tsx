@@ -12,9 +12,15 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { getDb, type ChatMessage, type ChatSource, type NotePage, type Subject, type Topic } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics } from "@/lib/demo";
 import { splitSentences } from "@/lib/listen/sentences";
+import { useVoices, voiceForLanguageTags } from "@/lib/listen/voices";
 import { OFFLINE_TUTOR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { search } from "@/lib/rag/search";
 import { isNotebookError, useNotebook } from "@/lib/use-notebook";
+import {
+  noVoiceForLanguageMessage,
+  TUTOR_LANGUAGE_VOICE_TAGS,
+  tutorLanguageOrDefault,
+} from "@/lib/tutor/languages";
 import { plainTutorText } from "@/lib/tutor/plain";
 import { readTutorStream } from "@/lib/tutor/stream";
 import { addChatMessage, clearChat, makeChatMessage } from "@/lib/tutor/store";
@@ -40,6 +46,7 @@ export function TutorScreen() {
   const notebook = useNotebook();
   const messages = useLiveQuery(loadMessages);
   const listen = useListen();
+  const voices = useVoices();
   const online = useSyncExternalStore(subscribeOnline, onlineSnapshot, onlineServerSnapshot);
   const [subjectId, setSubjectId] = useState("");
   const [input, setInput] = useState("");
@@ -80,6 +87,10 @@ export function TutorScreen() {
 
   const subjects = shownSubjects(notebook.subjects);
   const topics = shownTopics(notebook.topics);
+  const tutorLanguage = tutorLanguageOrDefault(notebook.settings?.tutorLanguage);
+  const listenVoice = voiceForLanguageTags(voices.voices, TUTOR_LANGUAGE_VOICE_TAGS[tutorLanguage]);
+  const canListen = Boolean(listenVoice);
+  const listenHint = canListen ? "" : noVoiceForLanguageMessage(tutorLanguage);
   const pages = shownPages(notebook.pages);
   const chat = messages;
   const busy = phase !== "";
@@ -152,7 +163,7 @@ export function TutorScreen() {
       const response = await fetch("/api/llm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, history, chunks }),
+        body: JSON.stringify({ question, history, chunks, language: tutorLanguage }),
         signal: controller.signal,
       });
       const type = response.headers.get("content-type") ?? "";
@@ -205,6 +216,9 @@ export function TutorScreen() {
   }
 
   function speak(message: ChatMessage) {
+    if (!canListen || !listenVoice) return;
+    // Prefer the matching language voice over a saved English default.
+    listen.chooseVoice(listenVoice.voiceURI);
     const cues = splitSentences(plainTutorText(message.text)).map((slice) => ({
       pageId: message.sources?.[0]?.pageId ?? "tutor",
       start: slice.start,
@@ -271,7 +285,10 @@ export function TutorScreen() {
   return (
     <main className="nw-page mx-auto w-full max-w-[760px]">
       <ReviewedIndex pages={pages} />
-      <p className="nw-mono text-[12px] text-muted">Tutor</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="nw-mono text-[12px] text-muted">Tutor</p>
+        <span className="nw-chip bg-yellow text-ink">Language · Beta</span>
+      </div>
       <div className="mt-3">
         <SectionHeading before="Ask your" highlight="notes" />
       </div>
@@ -300,6 +317,11 @@ export function TutorScreen() {
           {OFFLINE_TUTOR}
         </p>
       ) : null}
+      {voices.settled && !canListen ? (
+        <p className="mt-4 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+          {listenHint}
+        </p>
+      ) : null}
 
       <div className="mt-6 flex flex-col gap-3" aria-live="polite">
         {chat.length === 0 && !busy ? (
@@ -313,6 +335,8 @@ export function TutorScreen() {
             key={message.id}
             message={message}
             copied={copiedId === message.id}
+            canListen={canListen}
+            listenHint={listenHint}
             onCopy={() => void copy(message)}
             onListen={() => speak(message)}
           />
@@ -428,11 +452,15 @@ function SubjectChip({
 function Bubble({
   message,
   copied,
+  canListen,
+  listenHint,
   onCopy,
   onListen,
 }: {
   message: ChatMessage;
   copied: boolean;
+  canListen: boolean;
+  listenHint: string;
   onCopy: () => void;
   onListen: () => void;
 }) {
@@ -465,10 +493,19 @@ function Bubble({
             <button type="button" className="nw-btn nw-btn-secondary min-h-11 px-3" onClick={onCopy}>
               {copied ? "Copied" : "Copy"}
             </button>
-            <button type="button" className="nw-btn nw-btn-secondary min-h-11 px-3" onClick={onListen}>
+            <button
+              type="button"
+              className="nw-btn nw-btn-secondary min-h-11 px-3"
+              disabled={!canListen}
+              title={canListen ? "Listen to this answer" : listenHint}
+              onClick={onListen}
+            >
               Listen
             </button>
           </div>
+          {!canListen && listenHint ? (
+            <p className="mt-2 text-sm text-muted">{listenHint}</p>
+          ) : null}
         </>
       ) : null}
     </article>
