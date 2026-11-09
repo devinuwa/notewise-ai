@@ -18,7 +18,7 @@ import {
   PROBLEM_CARDS,
 } from "@/lib/landing/content";
 import { LANDING_STATS } from "@/lib/landing-stats";
-import { GITHUB_REPO, SITE_NAME } from "@/lib/site";
+import { SITE_NAME } from "@/lib/site";
 
 export function LandingPage({ openHref = "/?start=1" }: { openHref?: string }) {
   return (
@@ -218,20 +218,12 @@ export function LandingPage({ openHref = "/?start=1" }: { openHref?: string }) {
             <h2 className="nw-display text-[clamp(32px,6vw,64px)] text-paper">
               About <span className="text-blue">{SITE_NAME}.</span>
             </h2>
-            <p className="mt-6 max-w-3xl text-lg text-paper">
-              Built by {CREATOR_NAME} for HIASFEST 2027, Category L: AI and the augmentation of human capabilities.
-            </p>
+            <p className="mt-6 max-w-3xl text-lg text-paper">Built by {CREATOR_NAME}.</p>
             <p className="mt-4 max-w-3xl text-base text-paper/90">
               Free and open-source tools power the app shell (Next.js, Dexie, Serwist, Tesseract.js, transformers.js,
               pdf-lib, docx, Framer Motion). Cloud handwriting and language models run through a free-tier adapter so
-              providers can be swapped. Cursor and other AI coding tools helped while building — the product decisions
-              and review step stay with the student.
+              providers can be swapped. The product decisions and review step stay with the student.
             </p>
-            <div className="mt-8">
-              <a href={GITHUB_REPO} className="nw-btn nw-btn-secondary" rel="noopener noreferrer" target="_blank">
-                View on GitHub
-              </a>
-            </div>
             {LANDING_STATS.length > 0 ? (
               <dl className="mt-10 grid gap-4 sm:grid-cols-3">
                 {LANDING_STATS.map((stat) => (
@@ -251,7 +243,7 @@ export function LandingPage({ openHref = "/?start=1" }: { openHref?: string }) {
           <div>
             <p className="font-mono text-sm font-bold tracking-[0.14em]">NOTEWISE AI</p>
             <p className="mt-2 max-w-md text-sm text-paper/80">
-              Local-first study companion for handwritten notes. Built for HIASFEST 2027.
+              Local-first study companion for handwritten notes. Built by {CREATOR_NAME}.
             </p>
           </div>
           <nav className="flex flex-col gap-3 sm:items-end" aria-label="Footer">
@@ -261,18 +253,11 @@ export function LandingPage({ openHref = "/?start=1" }: { openHref?: string }) {
             <Link href="/guide" className="nw-mono text-[12px] text-paper no-underline">
               Guide
             </Link>
-            <a href={GITHUB_REPO} className="nw-mono text-[12px] text-paper no-underline">
-              GitHub
-            </a>
             <Link href="/about" className="nw-mono text-[12px] text-paper no-underline">
               About
             </Link>
           </nav>
         </div>
-        <p className="mx-auto mt-8 max-w-[1200px] text-sm text-paper/70">
-          Fonts: Archivo, Inter, and Space Mono via Google Fonts. Open-source libraries credited in the repository
-          README. Built by {CREATOR_NAME}.
-        </p>
       </footer>
     </div>
   );

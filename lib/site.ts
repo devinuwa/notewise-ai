@@ -7,4 +7,3 @@ export const SITE_URL = (
 export const SITE_NAME = "NoteWise AI";
 export const SITE_TAGLINE =
   "Photograph your handwritten notes. Search, listen, ask, and practise — free, with no account.";
-export const GITHUB_REPO = "https://github.com/devinuwa/notewise-ai";

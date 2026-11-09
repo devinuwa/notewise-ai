@@ -37,7 +37,7 @@ export default function OpenGraphImage() {
             Photograph handwritten notes. Search, listen, ask, and practise — free, with no account.
           </div>
         </div>
-        <div style={{ fontSize: 22, fontFamily: "monospace", color: "#8bb2de" }}>HIASFEST 2027 · Category L</div>
+        <div style={{ fontSize: 22, fontFamily: "monospace", color: "#8bb2de" }}>Diamond Global Academy</div>
       </div>
     ),
     { ...size },

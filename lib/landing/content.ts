@@ -125,7 +125,7 @@ export const AUDIENCE = [
   },
   {
     title: "Teachers",
-    body: "Classroom tools for teachers are not shipping yet. The student app is the focus for HIASFEST 2027.",
+    body: "Classroom tools for teachers are not shipping yet. The student app is the focus for now.",
     status: "soon" as const,
   },
 ];
@@ -161,7 +161,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Who built it?",
-    a: "A secondary-school student project for HIASFEST 2027, Category L: AI and the augmentation of human capabilities. See the About section for the builder name and GitHub link.",
+    a: "NoteWise AI is built by Diamond Global Academy. See the About section for more.",
   },
 ] as const;
 
@@ -170,6 +170,6 @@ export const HERO_SHOT = {
   alt: "NoteWise Home screen greeting a student with My NoteWise",
   width: 390,
   height: 844,
-  /** Demo/sample notebook data — replace before HIASFEST submission. */
+  /** Demo/sample notebook data — replace with your own notes when ready. */
   demoData: true,
 } as const;
