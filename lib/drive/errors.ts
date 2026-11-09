@@ -5,6 +5,11 @@ export class DriveError extends Error {
   }
 }
 
+function currentOrigin() {
+  if (typeof window === "undefined") return "";
+  return window.location.origin;
+}
+
 /** Map network and Drive API failures to short student-facing lines. */
 export function friendlyDriveError(caught: unknown) {
   if (caught instanceof DriveError) return caught.message;
@@ -14,20 +19,44 @@ export function friendlyDriveError(caught: unknown) {
   if (caught instanceof TypeError) {
     return "You look offline. Connect to the internet and try again.";
   }
-  const message = caught instanceof Error ? caught.message : "";
-  if (/401|invalid.?token|expired/i.test(message)) {
+
+  const message = caught instanceof Error ? caught.message : String(caught ?? "");
+  const lower = message.toLowerCase();
+  const origin = currentOrigin();
+
+  if (/popup_blocked|popup blocked|blocked by the user|window\.open/i.test(message)) {
+    return "The Google sign-in window was blocked. Allow popups for this site, then Connect Google Drive again.";
+  }
+  if (/popup_closed|closed before/i.test(message)) {
+    return "Google Drive sign-in was closed before it finished.";
+  }
+  if (/access_denied|permission was denied|insufficient|permission/i.test(message)) {
+    return "Google Drive permission was denied. Connect again and allow NoteWise to save files it creates.";
+  }
+  if (/unverified|hasn.?t verified|not verified|app is currently being tested/i.test(message)) {
+    return 'Google shows "unverified app" while NoteWise is in Testing. Click Advanced, then Go to NoteWise (unsafe). Only do this if you are a listed test user.';
+  }
+  if (/origin|redirect_uri|javascript origin|unauthorized.?client|invalid.?client/i.test(message)) {
+    return origin
+      ? `This site origin is not allowed for Google sign-in yet. In Google Cloud → Credentials → your Web client, add Authorised JavaScript origin: ${origin}`
+      : "This site origin is not allowed for Google sign-in yet. Add this page's origin under Authorised JavaScript origins in Google Cloud.";
+  }
+  if (/401|invalid.?token|expired/i.test(lower)) {
     return "Google Drive access expired. Connect Google Drive again.";
   }
-  if (/403|insufficient|permission/i.test(message)) {
+  if (/403/i.test(message)) {
+    if (/quota|storage/i.test(message)) {
+      return "Google Drive is full. Free some space, then try again.";
+    }
     return "Google Drive permission was denied. Connect again and allow NoteWise to save files it creates.";
   }
   if (/404/i.test(message)) {
     return "That Drive backup could not be found. It may have been moved or deleted.";
   }
-  if (/429|rate/i.test(message)) {
+  if (/429|rate/i.test(lower)) {
     return "Google Drive is busy. Wait a moment and try again.";
   }
-  if (/quota|storage/i.test(message)) {
+  if (/quota|storage/i.test(lower)) {
     return "Google Drive is full. Free some space, then try again.";
   }
   return "Google Drive could not finish that step. Try again.";

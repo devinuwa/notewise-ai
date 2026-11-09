@@ -49,6 +49,7 @@ export type NoteWiseManifest = {
   topics: { id: string; subjectId: string; name: string; createdAt: number }[];
   notePages: ManifestPage[];
   quizzes: unknown[];
+  chatMessages?: unknown[];
   examPapers: unknown[];
   examSheets: unknown[];
   examProfiles: unknown[];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/Button";
 
 type BeforeInstallPromptEvent = Event & {
@@ -20,37 +20,48 @@ function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
 }
 
+function dismissedSnapshot() {
+  try {
+    return sessionStorage.getItem(DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function subscribeDismissed(listener: () => void) {
+  window.addEventListener("storage", listener);
+  return () => window.removeEventListener("storage", listener);
+}
+
 export function InstallBanner() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [iosHint, setIosHint] = useState(false);
-  const [hidden, setHidden] = useState(true);
+  const [dismissTick, setDismissTick] = useState(0);
+  const dismissed = useSyncExternalStore(subscribeDismissed, () => dismissedSnapshot() || dismissTick > 0, () => true);
+  const standalone = useSyncExternalStore(
+    () => () => {},
+    () => isStandalone(),
+    () => true,
+  );
+  const ios = useSyncExternalStore(
+    () => () => {},
+    () => isIos(),
+    () => false,
+  );
 
   useEffect(() => {
-    if (isStandalone()) return;
-    try {
-      if (sessionStorage.getItem(DISMISS_KEY) === "1") return;
-    } catch {
-      // Private mode may block sessionStorage.
-    }
-
-    if (isIos()) {
-      setIosHint(true);
-      setHidden(false);
-      return;
-    }
+    if (standalone || dismissed || ios) return;
 
     function onPrompt(event: Event) {
       event.preventDefault();
       setDeferred(event as BeforeInstallPromptEvent);
-      setHidden(false);
     }
     window.addEventListener("beforeinstallprompt", onPrompt);
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
-  }, []);
+  }, [standalone, dismissed, ios]);
 
   function dismiss() {
-    setHidden(true);
     setDeferred(null);
+    setDismissTick((tick) => tick + 1);
     try {
       sessionStorage.setItem(DISMISS_KEY, "1");
     } catch {
@@ -65,7 +76,9 @@ export function InstallBanner() {
     dismiss();
   }
 
-  if (hidden) return null;
+  const showIos = !standalone && !dismissed && ios;
+  const showPrompt = !standalone && !dismissed && Boolean(deferred);
+  if (!showIos && !showPrompt) return null;
 
   return (
     <aside
@@ -76,7 +89,7 @@ export function InstallBanner() {
         <div>
           <p className="nw-mono text-[12px] text-muted">Home screen</p>
           <p className="mt-1 text-base">
-            {iosHint
+            {showIos
               ? "Add NoteWise to your home screen: tap Share, then Add to Home Screen."
               : "Add NoteWise to your home screen for a full-screen, offline-friendly study app."}
           </p>

@@ -1,5 +1,6 @@
 import {
   getDb,
+  type ChatMessage,
   type ExamPaper,
   type ExamProfile,
   type ExamSheet,
@@ -77,6 +78,7 @@ export async function restoreFromDrive(fileId: string, mode: RestoreMode, onCapt
         db.topics,
         db.notePages,
         db.quizzes,
+        db.chatMessages,
         db.examPapers,
         db.examSheets,
         db.examProfiles,
@@ -88,6 +90,7 @@ export async function restoreFromDrive(fileId: string, mode: RestoreMode, onCapt
           db.topics.clear(),
           db.notePages.clear(),
           db.quizzes.clear(),
+          db.chatMessages.clear(),
           db.examPapers.clear(),
           db.examSheets.clear(),
           db.examProfiles.clear(),
@@ -130,6 +133,24 @@ export async function restoreFromDrive(fileId: string, mode: RestoreMode, onCapt
       if (local && local.createdAt > quiz.createdAt) continue;
     }
     await db.quizzes.put(quiz);
+  }
+
+  onCaption?.("Reading tutor chat…");
+  for (const rawChat of manifest.chatMessages ?? []) {
+    const message = rawChat as ChatMessage;
+    if (!message?.id || (message.role !== "user" && message.role !== "tutor")) continue;
+    if (mode === "merge") {
+      const local = await db.chatMessages.get(message.id);
+      if (local && local.createdAt > message.createdAt) continue;
+    }
+    await db.chatMessages.put({
+      id: message.id,
+      role: message.role,
+      text: message.text ?? "",
+      createdAt: message.createdAt,
+      subjectId: message.subjectId,
+      sources: message.sources,
+    });
   }
 
   onCaption?.("Reading exam backups…");

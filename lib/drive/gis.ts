@@ -111,13 +111,32 @@ export async function connectDrive(prompt: "" | "consent" = "consent"): Promise<
       scope: DRIVE_SCOPE,
       callback: (response) => {
         if (response.error || !response.access_token) {
-          reject(
-            new DriveError(
-              response.error === "access_denied"
-                ? "Google Drive permission was denied. Connect again and allow NoteWise to save files it creates."
-                : "Google Drive access expired. Connect Google Drive again.",
-            ),
-          );
+          const detail = `${response.error ?? ""} ${response.error_description ?? ""}`.trim();
+          if (response.error === "access_denied") {
+            reject(
+              new DriveError(
+                "Google Drive permission was denied. Connect again and allow NoteWise to save files it creates.",
+              ),
+            );
+            return;
+          }
+          if (/origin|unauthorized|invalid_client|redirect/i.test(detail)) {
+            reject(
+              new DriveError(
+                `This site origin is not allowed for Google sign-in yet. In Google Cloud → Credentials → your Web client, add Authorised JavaScript origin: ${window.location.origin}`,
+              ),
+            );
+            return;
+          }
+          if (/unverified|tested|not completed/i.test(detail)) {
+            reject(
+              new DriveError(
+                'Google shows "unverified app" while NoteWise is in Testing. Click Advanced, then Go to NoteWise (unsafe). Only do this if you are a listed test user.',
+              ),
+            );
+            return;
+          }
+          reject(new DriveError(detail || "Google Drive access expired. Connect Google Drive again."));
           return;
         }
         setToken(response.access_token, response.expires_in ?? 3600);
@@ -128,7 +147,20 @@ export async function connectDrive(prompt: "" | "consent" = "consent"): Promise<
           reject(new DriveError("Google Drive sign-in was closed before it finished."));
           return;
         }
-        reject(new DriveError("Google Drive permission was denied. Connect again and allow NoteWise to save files it creates."));
+        if (error.type === "popup_failed" || /popup/i.test(error.message ?? "")) {
+          reject(
+            new DriveError(
+              "The Google sign-in window was blocked. Allow popups for this site, then Connect Google Drive again.",
+            ),
+          );
+          return;
+        }
+        reject(
+          new DriveError(
+            error.message ||
+              "Google Drive permission was denied. Connect again and allow NoteWise to save files it creates.",
+          ),
+        );
       },
     });
     client.requestAccessToken({ prompt });

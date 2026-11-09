@@ -1,4 +1,4 @@
-import { getDb, type NotePage, type Quiz } from "@/lib/db";
+import { getDb, type ChatMessage, type NotePage, type Quiz } from "@/lib/db";
 import type { ManifestPage, NoteWiseManifest } from "@/lib/drive/types";
 
 function realDriveFileId(value?: string) {
@@ -38,6 +38,17 @@ function quizPlain(quiz: Quiz) {
     createdAt: quiz.createdAt,
     note: quiz.note,
     styleLabel: quiz.styleLabel,
+  };
+}
+
+function chatPlain(message: ChatMessage) {
+  return {
+    id: message.id,
+    role: message.role,
+    text: message.text,
+    createdAt: message.createdAt,
+    subjectId: message.subjectId,
+    sources: message.sources,
   };
 }
 
@@ -88,6 +99,7 @@ export async function buildManifest(includePhotos: boolean, photoIds: Record<str
     topics: await db.topics.toArray(),
     notePages: pages.map((page) => pageMeta(page, photoIds[page.id])),
     quizzes: (await db.quizzes.toArray()).map(quizPlain),
+    chatMessages: (await db.chatMessages.toArray()).map(chatPlain),
     examPapers,
     examSheets,
     examProfiles,
@@ -119,6 +131,7 @@ export function parseManifest(raw: string): NoteWiseManifest {
     topics: Array.isArray(record.topics) ? record.topics : [],
     notePages: record.notePages,
     quizzes: Array.isArray(record.quizzes) ? record.quizzes : [],
+    chatMessages: Array.isArray(record.chatMessages) ? record.chatMessages : [],
     examPapers: Array.isArray(record.examPapers) ? record.examPapers : [],
     examSheets: Array.isArray(record.examSheets) ? record.examSheets : [],
     examProfiles: Array.isArray(record.examProfiles) ? record.examProfiles : [],

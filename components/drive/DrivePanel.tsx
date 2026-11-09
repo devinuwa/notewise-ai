@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { backupToDrive } from "@/lib/drive/backup";
@@ -26,10 +26,8 @@ export function DrivePanel({ compact = false }: { compact?: boolean }) {
   const [fileId, setFileId] = useState("");
   const [mode, setMode] = useState<RestoreMode | "">("");
   const configured = driveConfigured();
-
-  useEffect(() => {
-    if (!connected) setRestoreOpen(false);
-  }, [connected]);
+  // Hide restore UI when the token is gone — do not mirror connected into state via useEffect.
+  const restoreVisible = connected && restoreOpen;
 
   async function onConnect() {
     setError("");
@@ -205,12 +203,12 @@ export function DrivePanel({ compact = false }: { compact?: boolean }) {
         </label>
       ) : null}
 
-      {restoreOpen ? (
+      {restoreVisible ? (
         <div className="mt-4 border-2 border-ink bg-paper px-4 py-4 text-ink shadow-[4px_4px_0_var(--shadow)]">
           <p className="nw-mono text-[12px] text-muted">Restore</p>
           <p className="mt-2 text-base">
-            Merge keeps newer edits on this device. Replace clears subjects, topics, pages, quizzes, and exam backups
-            first.
+            Merge keeps newer edits on this device. Replace clears subjects, topics, pages, quizzes, tutor chat, and
+            exam backups first.
           </p>
           <label className="mt-4 block">
             <span className="nw-mono text-[12px] text-muted">Backup file</span>

@@ -43,9 +43,12 @@ export function OrbCanvas({
   const phaseRef = useRef(phase);
   const levelRef = useRef(level);
   const reduceRef = useRef(reducedMotion);
-  phaseRef.current = phase;
-  levelRef.current = level;
-  reduceRef.current = reducedMotion;
+
+  useEffect(() => {
+    phaseRef.current = phase;
+    levelRef.current = level;
+    reduceRef.current = reducedMotion;
+  }, [phase, level, reducedMotion]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Hosted Tesseract worker and WebAssembly cores. They are vendor files.
     "public/tessdata/**",
+    // Vendored PDF.js worker — minified third-party, not app source.
+    "public/pdf.worker.min.mjs",
   ]),
 ]);
 

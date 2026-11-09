@@ -76,19 +76,30 @@ If `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is missing, Connect Google Drive explains that
 
 A development build has a Load demo notes button in Settings. Those sample rows are marked DEMO, they are left out of Home counts and Stats, and a production build does not show them.
 
-## Google Drive OAuth client
+## Google Drive setup
 
-Drive backup uses Google Identity Services in the browser with the `https://www.googleapis.com/auth/drive.file` scope only. NoteWise can only see files it created. Tokens stay in memory and are revoked on Disconnect Drive.
+Drive backup uses Google Identity Services in the browser with the `https://www.googleapis.com/auth/drive.file` scope only. NoteWise can only see files it created. Tokens stay in memory and are revoked on Disconnect Drive. No Client Secret is used in the browser.
 
 1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create or pick a project.
 2. Enable the **Google Drive API** (APIs & Services → Library).
-3. Configure the **OAuth consent screen** (External is fine for a school demo). Add yourself and any competition judges as test users while the app is in Testing.
+3. Configure the **OAuth consent screen** (External is fine for a school demo). While the app is in **Testing**, add yourself and any judges as **test users**.
 4. Create credentials → **OAuth client ID** → Application type **Web application**.
-5. Under Authorised JavaScript origins, add:
+5. Under **Authorised JavaScript origins**, add every origin you open NoteWise from, for example:
    - `http://localhost:3000` for local work
+   - `https://localhost:3000` if you use HTTPS locally
    - your production origin, for example `https://your-app.vercel.app`
-6. Copy the Client ID into `.env.local` as `NEXT_PUBLIC_GOOGLE_CLIENT_ID=...` (and into Vercel env vars for deploy).
-7. Restart `npm run dev` after changing env vars.
+6. Copy the **Client ID** (not a secret) into `.env.local`:
+
+   ```bash
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   ```
+
+7. Add the same variable on Vercel for **Production** and **Preview** (Project → Settings → Environment Variables), then redeploy.
+8. Restart `npm run dev` after changing local env vars.
+
+**Testing mode tip:** Google may show “Google hasn’t verified this app.” Click **Advanced**, then **Go to NoteWise (unsafe)** — only if your Google account is listed as a test user.
+
+**Backup contents:** subjects, topics, page text and metadata, quizzes, tutor chat, and exam profiles (past papers only when the student ticked include-in-backup). Photos upload only when **Include photos** is ticked. Restore asks **Merge** or **Replace**; Merge keeps newer local edits.
 
 Do not add broader Drive scopes. Do not put a client secret in the browser app.
 
