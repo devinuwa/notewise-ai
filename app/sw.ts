@@ -13,6 +13,7 @@ declare const self: ServiceWorkerGlobalScope & {
  * copy of Serwist's Strategy class — otherwise offline fallbacks break.
  */
 const runtimeCaching: RuntimeCaching[] = [
+  // Never cache OCR / tutor / quiz API responses — always hit the network.
   {
     matcher: ({ url }) => url.pathname.startsWith("/api/"),
     handler: new NetworkOnly(),
@@ -37,7 +38,7 @@ const runtimeCaching: RuntimeCaching[] = [
       pathname.startsWith("/icons/") ||
       pathname === "/og.png" ||
       /\.(?:png|jpg|jpeg|svg|webp|ico)$/i.test(pathname),
-    handler: new StaleWhileRevalidate({ cacheName: "notewise-images" }),
+    handler: new CacheFirst({ cacheName: "notewise-icons" }),
   },
   {
     matcher: ({ request, url: { pathname } }) =>
@@ -48,6 +49,7 @@ const runtimeCaching: RuntimeCaching[] = [
     handler: new StaleWhileRevalidate({ cacheName: "notewise-static" }),
   },
   {
+    // App shell documents (Home, Library, Settings, …).
     matcher: ({ request, sameOrigin, url: { pathname } }) =>
       sameOrigin && request.destination === "document" && !pathname.startsWith("/api/"),
     handler: new NetworkFirst({

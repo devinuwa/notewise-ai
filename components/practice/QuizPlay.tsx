@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import type { AttemptAnswer, QuizQuestion } from "@/lib/db";
+import { setSessionBusy } from "@/lib/pwa/session-busy";
 
 export function QuizPlay({
   questions,
@@ -19,6 +20,12 @@ export function QuizPlay({
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [answers, setAnswers] = useState<AttemptAnswer[]>([]);
+
+  useEffect(() => {
+    setSessionBusy("quiz", true);
+    return () => setSessionBusy("quiz", false);
+  }, []);
+
   const question = questions[index];
   if (!question) return null;
   const total = questions.length;

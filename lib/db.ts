@@ -210,7 +210,8 @@ export interface Settings {
   textSize?: "md" | "lg" | "xl";
 }
 
-class NoteWiseDB extends Dexie {
+/** Exported so upgrade tests can open the same schema path as production. */
+export class NoteWiseDB extends Dexie {
   subjects!: Table<Subject, string>;
   topics!: Table<Topic, string>;
   notePages!: Table<NotePage, string>;
@@ -297,6 +298,30 @@ class NoteWiseDB extends Dexie {
       examSheets: "id, paperId, pageNumber, status",
       examProfiles: "id, paperId, examBody, subjectName, createdAt",
     });
+    // Version 8: tutor language preference. Never clear student data on upgrade.
+    this.version(8)
+      .stores({
+        subjects: "id, name, createdAt",
+        topics: "id, subjectId, createdAt",
+        notePages: "id, topicId, subjectId, status, createdAt",
+        settings: "id",
+        ocrCache: "hash",
+        chunks: "id, pageId, topicId, subjectId, createdAt",
+        chatMessages: "id, role, createdAt",
+        quizzes: "id, subjectId, topicId, createdAt",
+        attempts: "id, quizId, takenAt",
+        examPapers: "id, examBody, subjectName, year, createdAt",
+        examSheets: "id, paperId, pageNumber, status",
+        examProfiles: "id, paperId, examBody, subjectName, createdAt",
+      })
+      .upgrade(async (tx) => {
+        const rows = await tx.table("settings").toArray();
+        for (const row of rows) {
+          const current = row as Settings;
+          if (current.tutorLanguage) continue;
+          await tx.table("settings").put({ ...current, tutorLanguage: "en", id: "local" });
+        }
+      });
   }
 }
 

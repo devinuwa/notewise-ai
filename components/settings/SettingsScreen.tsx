@@ -11,6 +11,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ListenSettings } from "@/components/listen/ListenSettings";
 import { TutorLanguageSettings } from "@/components/settings/TutorLanguageSettings";
 import { tutorLanguageOrDefault } from "@/lib/tutor/languages";
+import { AboutSettings } from "@/components/settings/AboutSettings";
 import { AccuracyPanel } from "@/components/settings/AccuracyPanel";
 import { clearAllData, type OcrMode } from "@/lib/db";
 import { isSpeechRate } from "@/lib/listen/rates";
@@ -141,6 +142,7 @@ function SettingsBody({ onDelete }: { onDelete: () => void }) {
       />
       <DrivePanel />
       <AccuracyPanel pages={snapshot.pages} />
+      <AboutSettings />
       <p className="mt-8 text-base text-ink">
         <Link href="/privacy" className="font-semibold underline decoration-2 underline-offset-4">
           Privacy

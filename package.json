@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test lib/db.upgrade.test.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
@@ -35,7 +36,9 @@
     "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
+    "fake-indexeddb": "6.0.0",
     "tailwindcss": "^4",
+    "tsx": "4.19.3",
     "typescript": "^5"
   }
 }

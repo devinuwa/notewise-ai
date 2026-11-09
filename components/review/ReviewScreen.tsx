@@ -10,6 +10,7 @@ import { StudyBrainLoader } from "@/components/library/NoteSearch";
 import { getDb, type NotePage, type Subject, type Topic } from "@/lib/db";
 import type { FlaggedWord } from "@/lib/ocr/types";
 import { kickOcrQueue } from "@/lib/ocr/queue";
+import { setSessionBusy } from "@/lib/pwa/session-busy";
 import { asFlags, dropFlag, markPageDone, replaceFlag, savePageDraft, sentenceParts } from "@/lib/review";
 import { isNotebookError, useNotebook } from "@/lib/use-notebook";
 
@@ -182,6 +183,12 @@ export function CorrectionEditor({
   useEffect(() => {
     saveDraftRef.current = saveDraft;
   }, [saveDraft]);
+
+  useEffect(() => {
+    // Block PWA reload while a draft has not finished writing to Dexie.
+    setSessionBusy(`edit:${page.id}`, !saved);
+    return () => setSessionBusy(`edit:${page.id}`, false);
+  }, [page.id, saved]);
 
   useEffect(() => {
     if (!dirty.current || closed.current) return;

@@ -11,14 +11,14 @@ const serwistRoute = createSerwistRoute({
   // Only routes — public icons/fonts are already hashed into the auto manifest.
   // Duplicate URLs with different revisions crash SW evaluation.
   additionalPrecacheEntries: [
-    { url: "/", revision: "shell-v1" },
-    { url: "/library", revision: "shell-v1" },
-    { url: "/settings", revision: "shell-v1" },
-    { url: "/practice", revision: "shell-v1" },
-    { url: "/tutor", revision: "shell-v1" },
-    { url: "/privacy", revision: "shell-v1" },
-    { url: "/offline", revision: "shell-v1" },
-    { url: "/scan", revision: "shell-v1" },
+    { url: "/", revision: "shell-v2" },
+    { url: "/library", revision: "shell-v2" },
+    { url: "/settings", revision: "shell-v2" },
+    { url: "/practice", revision: "shell-v2" },
+    { url: "/tutor", revision: "shell-v2" },
+    { url: "/privacy", revision: "shell-v2" },
+    { url: "/offline", revision: "shell-v2" },
+    { url: "/scan", revision: "shell-v2" },
   ],
   useNativeEsbuild: true,
   esbuildOptions: {
