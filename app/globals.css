@@ -498,3 +498,49 @@ dialog.nw-dialog::backdrop {
   scroll-margin-bottom: 40vh;
 }
 
+.live-caption {
+  animation: live-caption-in 420ms ease;
+}
+
+.live-sources {
+  transform: translateY(0.5rem);
+  opacity: 0.85;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.live-sources.is-open {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+@keyframes live-caption-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-caption,
+  .live-sources {
+    animation: none;
+    transition: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+

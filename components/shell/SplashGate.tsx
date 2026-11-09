@@ -41,7 +41,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   const live = pathname === "/tutor/live";
   const hideNav = live || pathname === "/cleared" || phase !== "done";
   const pad = hideNav ? "min-h-dvh" : "shell-pad min-h-dvh";
-  const withPlayer = listen.cues.length > 0 ? `${pad} has-listen` : pad;
+  const withPlayer = !live && listen.cues.length > 0 ? `${pad} has-listen` : pad;
 
   return (
     <SplashContext.Provider value={phase === "done"}>
@@ -51,7 +51,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       {hideNav ? null : <BottomNav />}
-      <MiniPlayer />
+      {live ? null : <MiniPlayer />}
       {phase === "done" ? null : (
         <div
           className={phase === "exit" ? "splash is-leaving" : "splash"}

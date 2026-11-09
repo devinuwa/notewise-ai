@@ -381,10 +381,11 @@ export function TutorScreen() {
       </form>
 
       <p className="mt-6 text-sm text-ink">
+        Prefer talking? Open{" "}
         <Link className="font-semibold underline" href="/tutor/live">
           Live Tutor
         </Link>{" "}
-        is still the voice room, coming later.
+        for a full-screen voice room with your notes.
       </p>
     </main>
   );

@@ -13,7 +13,7 @@ NoteWise is a local-first study companion for handwritten school notes. A studen
 - Settings shows pages digitized, flagged words fixed, and average accuracy before correction, split into cloud and on-device, with Copy stats for a proposal.
 
 - Listen reads reviewed pages aloud in the browser, one sentence at a time, with speed and voice remembered in Settings.
-- Tutor chat answers from the reviewed notes that match the question. The student can filter by subject, copy an answer, or listen to it. Live Tutor, the voice room, is still a later step.
+- Tutor chat answers from the reviewed notes that match the question. The student can filter by subject, copy an answer, or listen to it. Live Tutor is a full-screen voice room: speak a question, hear a short answer from your notes, or type if speech recognition is unavailable.
 - Practice writes a 5, 10, or 20 question quiz from reviewed notes. A question is kept only when its quote is found in those notes. Exam mode reads a past paper the student uploads, describes its pattern, and writes practice in that style from the student's notes. The score updates Home, including weak topics.
 - Export all data (a JSON file) and Delete all data are on the home profile bar and in Settings.
 
@@ -74,7 +74,7 @@ A development build has a Load demo notes button in Settings. Those sample rows 
 
 - The student name, subjects, topics, photos, and corrected text stay in IndexedDB on that device.
 - Cloud reading sends the page photo to Google AI Studio after the student chooses “I understand, continue”. Free AI services may use submitted content to improve their products.
-- Tutor chat sends the question, the last few messages, and up to four matching note excerpts to the same service. The server does not write those texts to its log. The saved chat stays in IndexedDB.
+- Tutor chat and Live Tutor send the question, the last few messages, and up to four matching note excerpts to the same service. The server does not write those texts to its log. The saved chat stays in IndexedDB. Live Tutor also uses the browser microphone and speech recognition when available.
 - Practice sends reviewed note excerpts so the quiz can be written. Exam mode also sends the reviewed text of a past paper when it describes the pattern. The server does not write those texts to its log. The quiz, the score, and the paper stay in IndexedDB. A past paper is left out of the JSON export unless the student ticks Include this past paper in a backup. Past papers belong to the exam bodies. This is for the student's own revision.
 - Do not scan pages with phone numbers, addresses, or other private details.
 - On-device reading keeps the photo on the phone. It is less accurate on handwriting.
