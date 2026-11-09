@@ -1,8 +1,9 @@
 import Image from "next/image";
 
 /**
- * Modern phone bezel (iPhone Pro–style): thin titanium rim, Dynamic Island,
- * and a soft inset screen — used for landing / guide screenshots.
+ * iPhone Pro–style device frame for landing / guide shots.
+ * Island sits in a real top bezel (not over the screenshot), so it stays visible
+ * even when the capture includes the app’s green header.
  */
 export function PhoneFrame({
   src,
@@ -20,41 +21,48 @@ export function PhoneFrame({
   className?: string;
 }) {
   return (
-    <figure className={`mx-auto w-full max-w-[260px] sm:max-w-[300px] ${className}`}>
-      <div
-        className="relative overflow-hidden rounded-[2.35rem] border-[5px] border-[#2a2a2c] bg-[#1c1c1e] p-[3px]"
-        style={{
-          boxShadow: "8px 8px 0 var(--shadow), inset 0 0 0 1px rgba(255,255,255,0.12)",
-        }}
-      >
-        {/* Side buttons (visual only) */}
-        <span aria-hidden className="absolute -left-[7px] top-[18%] h-8 w-[3px] rounded-l-sm bg-[#3a3a3c]" />
-        <span aria-hidden className="absolute -left-[7px] top-[28%] h-14 w-[3px] rounded-l-sm bg-[#3a3a3c]" />
-        <span aria-hidden className="absolute -left-[7px] top-[42%] h-14 w-[3px] rounded-l-sm bg-[#3a3a3c]" />
-        <span aria-hidden className="absolute -right-[7px] top-[30%] h-20 w-[3px] rounded-r-sm bg-[#3a3a3c]" />
+    <figure className={`mx-auto w-full max-w-[270px] px-2 sm:max-w-[310px] ${className}`}>
+      <div className="relative">
+        {/* Hardware buttons outside the clipped shell */}
+        <span aria-hidden className="absolute -left-1.5 top-[16%] z-20 h-7 w-[3px] rounded-sm bg-[#6b6b70]" />
+        <span aria-hidden className="absolute -left-1.5 top-[24%] z-20 h-12 w-[3px] rounded-sm bg-[#6b6b70]" />
+        <span aria-hidden className="absolute -left-1.5 top-[36%] z-20 h-12 w-[3px] rounded-sm bg-[#6b6b70]" />
+        <span aria-hidden className="absolute -right-1.5 top-[28%] z-20 h-[4.5rem] w-[3px] rounded-sm bg-[#6b6b70]" />
 
-        <div className="relative overflow-hidden rounded-[1.95rem] bg-paper">
-          {/* Dynamic Island */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-2 z-10 h-[22px] w-[92px] -translate-x-1/2 rounded-full bg-ink"
-          >
-            <span className="absolute right-3 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[#1a1a1c] ring-1 ring-[#2f2f32]" />
+        <div
+          className="relative overflow-hidden rounded-[2.6rem] border-[6px] border-[#3a3a3c] bg-[#0b0b0c]"
+          style={{
+            boxShadow:
+              "8px 8px 0 var(--shadow), 0 0 0 1px #111, inset 0 0 0 1px rgba(255,255,255,0.18)",
+          }}
+        >
+          {/* Top bezel + Dynamic Island */}
+          <div className="relative flex h-9 items-center justify-center bg-[#0b0b0c]">
+            <div
+              aria-hidden
+              className="flex h-[22px] w-[96px] items-center justify-end rounded-full bg-black px-2.5"
+              style={{ boxShadow: "inset 0 0 0 1px #222" }}
+            >
+              <span className="h-2 w-2 rounded-full bg-[#1c1c1e] ring-1 ring-[#3a3a3c]" />
+            </div>
           </div>
 
-          <Image
-            src={src}
-            alt={alt}
-            width={width}
-            height={height}
-            priority={priority}
-            sizes="(max-width: 640px) 260px, 300px"
-            className="h-auto w-full"
-          />
+          {/* Screen */}
+          <div className="relative overflow-hidden bg-paper">
+            <Image
+              src={src}
+              alt={alt}
+              width={width}
+              height={height}
+              priority={priority}
+              sizes="(max-width: 640px) 260px, 300px"
+              className="h-auto w-full"
+            />
+          </div>
 
-          {/* Home indicator */}
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-1.5 flex justify-center">
-            <span className="h-[4px] w-[34%] rounded-full bg-ink/80" />
+          {/* Bottom bezel + home indicator */}
+          <div className="flex h-7 items-end justify-center bg-[#0b0b0c] pb-2">
+            <span aria-hidden className="h-[4px] w-[36%] rounded-full bg-[#d1d1d6]" />
           </div>
         </div>
       </div>
