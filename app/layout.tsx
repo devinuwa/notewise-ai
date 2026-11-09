@@ -7,6 +7,7 @@ import { AppErrorBoundary } from "@/components/shell/AppErrorBoundary";
 import { SplashGate } from "@/components/shell/SplashGate";
 import { SplashScreen } from "@/components/shell/SplashScreen";
 import { TextSizeRoot } from "@/components/shell/TextSizeRoot";
+import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -37,17 +38,14 @@ const spaceMono = Space_Mono({
   variable: "--font-space",
 });
 
-const APP_NAME = "NoteWise AI";
-const APP_DESCRIPTION = "A local-first study companion for handwritten notes.";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  applicationName: APP_NAME,
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
-    default: APP_NAME,
+    default: SITE_NAME,
     template: "%s · NoteWise AI",
   },
-  description: APP_DESCRIPTION,
+  description: SITE_TAGLINE,
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -57,18 +55,22 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  alternates: {
+    canonical: SITE_URL,
+  },
   openGraph: {
     type: "website",
-    siteName: APP_NAME,
-    title: APP_NAME,
-    description: APP_DESCRIPTION,
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "NoteWise AI" }],
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_TAGLINE,
+    url: SITE_URL,
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "NoteWise AI" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: APP_NAME,
-    description: APP_DESCRIPTION,
-    images: ["/og.png"],
+    title: SITE_NAME,
+    description: SITE_TAGLINE,
+    images: ["/twitter-image"],
   },
   icons: {
     icon: [

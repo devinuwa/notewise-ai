@@ -34,21 +34,26 @@ export function OrbCanvas({
   phase,
   level,
   reducedMotion,
+  maxPx = 360,
 }: {
   phase: LivePhase;
   level: number;
   reducedMotion: boolean;
+  /** Cap canvas CSS size (landing spotlight uses a smaller orb). */
+  maxPx?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const phaseRef = useRef(phase);
   const levelRef = useRef(level);
   const reduceRef = useRef(reducedMotion);
+  const maxPxRef = useRef(maxPx);
 
   useEffect(() => {
     phaseRef.current = phase;
     levelRef.current = level;
     reduceRef.current = reducedMotion;
-  }, [phase, level, reducedMotion]);
+    maxPxRef.current = maxPx;
+  }, [phase, level, reducedMotion, maxPx]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -66,7 +71,7 @@ export function OrbCanvas({
 
     function resize() {
       if (!canvas) return;
-      const size = Math.min(360, Math.floor(window.innerWidth * 0.72));
+      const size = Math.min(maxPxRef.current, Math.floor(window.innerWidth * 0.72));
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.floor(size * dpr);
       canvas.height = Math.floor(size * dpr);

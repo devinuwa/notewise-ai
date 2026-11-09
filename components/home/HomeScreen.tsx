@@ -9,7 +9,6 @@ import { ClearDataDialog } from "@/components/home/ClearDataDialog";
 import { EmptyNotebook } from "@/components/home/EmptyNotebook";
 import { Hero } from "@/components/home/Hero";
 import { NotesSection } from "@/components/home/NotesSection";
-import { Onboarding } from "@/components/home/Onboarding";
 import { useSplashDone } from "@/components/shell/SplashGate";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { ProfileBar } from "@/components/ui/ProfileBar";
@@ -18,7 +17,7 @@ import { exportAllData } from "@/lib/backup";
 import { clearAllData } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics, withoutDemoPages, withoutDemoSubjects } from "@/lib/demo";
 import { heroSubtext } from "@/lib/home-copy";
-import { activityProgress, noteCards, saveStudentName } from "@/lib/notebook";
+import { activityProgress, noteCards } from "@/lib/notebook";
 import { finishedQuizQuestions } from "@/lib/practice/store";
 import { countTutorQuestions } from "@/lib/tutor/store";
 import { isNotebookError, useNotebook, useTitleCaseStoredName } from "@/lib/use-notebook";
@@ -66,9 +65,14 @@ function HomeBody({ onClear }: { onClear: () => void }) {
     );
   }
 
-  const name = snapshot.settings?.name ?? "";
+  const name = snapshot.settings?.name?.trim() ?? "";
   if (!name) {
-    return <Onboarding onSave={saveStudentName} />;
+    // HomeGate should have routed here only with a name; keep a quiet loader as a guard.
+    return (
+      <main className="grid min-h-dvh place-items-center bg-green-600">
+        <PixelLoader caption="Opening your notebook…" />
+      </main>
+    );
   }
 
   const countedPages = withoutDemoPages(snapshot.pages);

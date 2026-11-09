@@ -5,7 +5,10 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "NoteWise AI",
     short_name: "NoteWise",
     description: "A local-first study companion for handwritten notes.",
+    // Returning students already have a local profile, so "/" opens My NoteWise.
     start_url: "/",
+    scope: "/",
+    id: "/",
     display: "standalone",
     background_color: "#3d5f58",
     theme_color: "#3d5f58",

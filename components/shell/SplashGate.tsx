@@ -1,19 +1,23 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useLiveQuery } from "dexie-react-hooks";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ListenProvider, useListen } from "@/components/listen/ListenProvider";
 import { MiniPlayer } from "@/components/listen/MiniPlayer";
 import { OcrRunner } from "@/components/shell/OcrRunner";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { Header } from "@/components/shell/Header";
 import { PixelLoader } from "@/components/ui/PixelLoader";
+import { getDb } from "@/lib/db";
 
 const SplashContext = createContext(false);
 
 export function useSplashDone() {
   return useContext(SplashContext);
 }
+
+const MARKETING_PATHS = new Set(["/about", "/guide", "/privacy"]);
 
 export function SplashGate({ children }: { children: React.ReactNode }) {
   return (
@@ -25,8 +29,17 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const listen = useListen();
   const [phase, setPhase] = useState<"splash" | "exit" | "done">("splash");
+  // Object wrapper so "no settings row yet" is distinct from "still loading".
+  const profile = useLiveQuery(async () => {
+    const row = await getDb().settings.get("local");
+    return { name: row?.name?.trim() ?? "" };
+  });
+  const hasProfile = Boolean(profile?.name);
+  const profileKnown = profile !== undefined;
+  const starting = pathname === "/" && searchParams.get("start") === "1";
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -39,19 +52,24 @@ function Shell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const live = pathname === "/tutor/live";
-  const hideNav = live || pathname === "/cleared" || phase !== "done";
+  const marketing =
+    MARKETING_PATHS.has(pathname) ||
+    (pathname === "/" && profileKnown && !hasProfile) ||
+    (pathname === "/" && starting && !hasProfile);
+  const hideAppChrome = live || pathname === "/cleared" || marketing || phase !== "done";
+  const hideNav = hideAppChrome;
   const pad = hideNav ? "min-h-dvh" : "shell-pad min-h-dvh";
-  const withPlayer = !live && listen.cues.length > 0 ? `${pad} has-listen` : pad;
+  const withPlayer = !live && !marketing && listen.cues.length > 0 ? `${pad} has-listen` : pad;
 
   return (
     <SplashContext.Provider value={phase === "done"}>
       <OcrRunner />
-      {live ? null : <Header />}
-      <div id="content" className={withPlayer}>
+      {hideAppChrome ? null : <Header />}
+      <div id={marketing ? undefined : "content"} className={withPlayer}>
         {children}
       </div>
       {hideNav ? null : <BottomNav />}
-      {live ? null : <MiniPlayer />}
+      {live || marketing ? null : <MiniPlayer />}
       {phase === "done" ? null : (
         <div
           className={phase === "exit" ? "splash is-leaving" : "splash"}
