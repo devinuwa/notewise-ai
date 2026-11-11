@@ -23,7 +23,7 @@ export const TUTOR_LANGUAGE_VOICE_TAGS: Record<TutorLanguage, string[]> = {
   ha: ["ha"],
   yo: ["yo"],
   ig: ["ig"],
-  pcm: ["pcm", "en-ng", "en"],
+  pcm: ["pcm", "en-NG", "en"],
 };
 
 /** SpeechRecognition `lang` for Live Tutor listening. */

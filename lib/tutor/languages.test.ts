@@ -15,7 +15,7 @@ test("recognition locales map to Nigerian BCP-47 tags", () => {
 });
 
 test("Pidgin may use English voices; other local languages do not", () => {
-  assert.ok(TUTOR_LANGUAGE_VOICE_TAGS.pcm.includes("en-ng"));
+  assert.ok(TUTOR_LANGUAGE_VOICE_TAGS.pcm.includes("en-NG"));
   assert.ok(TUTOR_LANGUAGE_VOICE_TAGS.pcm.includes("en"));
   assert.equal(TUTOR_LANGUAGE_VOICE_TAGS.ha.includes("en"), false);
   assert.equal(TUTOR_LANGUAGE_VOICE_TAGS.yo.includes("en"), false);
