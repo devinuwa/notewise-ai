@@ -12,14 +12,36 @@ export const TUTOR_LANGUAGE_LABELS: Record<TutorLanguage, string> = {
   pcm: "Nigerian Pidgin",
 };
 
-/** BCP-47 prefixes we accept as a real voice for that language. No English stand-in for others. */
+/**
+ * BCP-47 prefixes we accept as a real voice for that language.
+ * Hausa / Yoruba / Igbo never fall back to English (that would mislead students).
+ * Nigerian Pidgin has no dedicated OS voice; English (especially en-NG) can read
+ * Latin-script Pidgin aloud, which is how phones in Nigeria usually handle it.
+ */
 export const TUTOR_LANGUAGE_VOICE_TAGS: Record<TutorLanguage, string[]> = {
   en: ["en"],
   ha: ["ha"],
   yo: ["yo"],
   ig: ["ig"],
-  pcm: ["pcm"],
+  pcm: ["pcm", "en-ng", "en"],
 };
+
+/** SpeechRecognition `lang` for Live Tutor listening. */
+export function recognitionLangForTutor(language: TutorLanguage): string {
+  switch (language) {
+    case "ha":
+      return "ha-NG";
+    case "yo":
+      return "yo-NG";
+    case "ig":
+      return "ig-NG";
+    case "pcm":
+      // Chrome rarely exposes pcm; en-NG is the practical listening locale in Nigeria.
+      return "en-NG";
+    default:
+      return "en-NG";
+  }
+}
 
 export function isTutorLanguage(value: unknown): value is TutorLanguage {
   return typeof value === "string" && (TUTOR_LANGUAGES as readonly string[]).includes(value);
@@ -34,6 +56,9 @@ export function tutorLanguageInstruction(language: TutorLanguage) {
   const name = TUTOR_LANGUAGE_LABELS[language];
   if (language === "en") {
     return " Write in clear, simple English. Keep technical terms plain. If you are not sure, say you are not sure and tell the student to check with their teacher.";
+  }
+  if (language === "pcm") {
+    return ` Write the whole answer in Nigerian Pidgin (Naija). Keep every technical or syllabus term in English inside brackets, for example: (photosynthesis). Use everyday Pidgin a secondary-school student in Nigeria would understand. If you are not sure, say so in Pidgin and tell the student to check with their teacher.`;
   }
   return ` Write the whole answer in ${name}. Keep every technical or syllabus term in English inside brackets, for example: (photosynthesis). If you are not sure, say so in ${name} and tell the student to check with their teacher.`;
 }

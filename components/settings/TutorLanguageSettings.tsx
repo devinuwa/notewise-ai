@@ -49,7 +49,9 @@ export function TutorLanguageSettings({ value }: { value?: TutorLanguage }) {
       ) : null}
       {voices.settled && hasVoice && language !== "en" ? (
         <p className="mt-3 text-sm text-muted">
-          This device has a matching voice for {TUTOR_LANGUAGE_LABELS[language]}, so Listen can speak Tutor answers.
+          {language === "pcm"
+            ? "This device can speak Nigerian Pidgin with an English voice (phones rarely ship a Pidgin voice). Live Tutor and Listen will read answers aloud."
+            : `This device has a matching voice for ${TUTOR_LANGUAGE_LABELS[language]}, so Listen can speak Tutor answers.`}
         </p>
       ) : null}
     </section>

@@ -29,6 +29,8 @@ import { OFFLINE_TUTOR, onlineServerSnapshot, onlineSnapshot, subscribeOnline } 
 import { search } from "@/lib/rag/search";
 import {
   noVoiceForLanguageMessage,
+  recognitionLangForTutor,
+  TUTOR_LANGUAGE_LABELS,
   TUTOR_LANGUAGE_VOICE_TAGS,
   tutorLanguageOrDefault,
   type TutorLanguage,
@@ -66,6 +68,7 @@ export function LiveTutorScreen() {
   const [error, setError] = useState("");
   const [textMode, setTextMode] = useState(false);
   const [textInput, setTextInput] = useState("");
+  const [tutorLanguage, setTutorLanguage] = useState<TutorLanguage>("en");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -138,6 +141,7 @@ export function LiveTutorScreen() {
       const rate = settings && isSpeechRate(settings.speechRate) ? settings.speechRate : 1;
       const language = tutorLanguageOrDefault(settings?.tutorLanguage);
       languageRef.current = language;
+      if (live) setTutorLanguage(language);
       const matched = voiceForLanguageTags(
         getVoiceSnapshot().voices,
         TUTOR_LANGUAGE_VOICE_TAGS[language],
@@ -173,7 +177,9 @@ export function LiveTutorScreen() {
       }
       micRef.current = meter;
 
-      const recognition = createRecognition();
+      // Always keep a typed fallback — Nigerian languages rarely have reliable STT on phones.
+      setTextMode(true);
+      const recognition = createRecognition(recognitionLangForTutor(language));
       recognitionRef.current = recognition;
       if (recognition) {
         recognition.onresult = (event) => {
@@ -225,7 +231,9 @@ export function LiveTutorScreen() {
             return;
           }
           if (event.error === "network") {
-            setError("Speech recognition needs internet. Check the connection, or type below.");
+            const net = "Speech recognition needs internet. Check the connection, or type below.";
+            // Keep the tutor-language voice note if it is already showing.
+            setError((prev) => (prev && prev.includes("speaking voice") ? `${prev} ${net}` : net));
             setTextMode(true);
           }
         };
@@ -274,7 +282,8 @@ export function LiveTutorScreen() {
   }, []);
 
   function resumeListening() {
-    if (textMode || mutedRef.current) {
+    // textMode only means the typed box is visible — mic can still listen.
+    if (mutedRef.current || !recognitionRef.current) {
       setPhase("idle");
       phaseRef.current = "idle";
       return;
@@ -318,6 +327,10 @@ export function LiveTutorScreen() {
     const settings = await getDb().settings.get("local").catch(() => undefined);
     const language = tutorLanguageOrDefault(settings?.tutorLanguage);
     languageRef.current = language;
+    setTutorLanguage(language);
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = recognitionLangForTutor(language);
+    }
     const matched = voiceForLanguageTags(
       getVoiceSnapshot().voices,
       TUTOR_LANGUAGE_VOICE_TAGS[language],
@@ -516,7 +529,7 @@ export function LiveTutorScreen() {
         setPhase("idle");
         phaseRef.current = "idle";
       }
-    } else if (!textMode && (phaseRef.current === "idle" || phaseRef.current === "listening")) {
+    } else if (recognitionRef.current && (phaseRef.current === "idle" || phaseRef.current === "listening")) {
       resumeListening();
     }
   }
@@ -562,8 +575,14 @@ export function LiveTutorScreen() {
   return (
     <main className="relative flex min-h-dvh flex-col bg-gradient-to-b from-green-800 to-ink text-paper">
       <ReviewedIndex pages={pages} />
-      <div className="flex items-center justify-between px-4 pb-2 pt-4">
-        <p className="nw-mono text-[12px] text-paper/80">Live Tutor</p>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-2 pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="nw-mono text-[12px] text-paper/80">Live Tutor</p>
+          <span className="nw-chip border-paper bg-ink/50 text-[11px] text-paper" title="Change this in Settings">
+            {TUTOR_LANGUAGE_LABELS[tutorLanguage]}
+            {tutorLanguage !== "en" ? " · Beta" : ""}
+          </span>
+        </div>
         <label className="flex items-center gap-2 text-xs text-paper/90">
           <input
             type="checkbox"
@@ -674,7 +693,11 @@ export function LiveTutorScreen() {
                 className="nw-input min-h-12 flex-1 border-paper bg-ink/40 text-paper placeholder:text-paper/50"
                 value={textInput}
                 maxLength={1000}
-                placeholder="Type your question"
+                placeholder={
+                  tutorLanguage === "en"
+                    ? "Type your question"
+                    : `Type in English or ${TUTOR_LANGUAGE_LABELS[tutorLanguage]} — answers come in ${TUTOR_LANGUAGE_LABELS[tutorLanguage]}`
+                }
                 disabled={phase === "thinking" || phase === "speaking"}
                 onChange={(event) => setTextInput(event.target.value)}
               />
