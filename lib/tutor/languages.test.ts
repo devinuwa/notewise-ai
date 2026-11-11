@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   recognitionLangForTutor,
   tutorLanguageInstruction,
+  TUTOR_LANGUAGE_LABELS,
   TUTOR_LANGUAGE_VOICE_TAGS,
 } from "@/lib/tutor/languages";
 
@@ -22,8 +23,22 @@ test("Pidgin may use English voices; other local languages do not", () => {
   assert.equal(TUTOR_LANGUAGE_VOICE_TAGS.ig.includes("en"), false);
 });
 
+test("UI labels use native orthography and tone marks where available", () => {
+  assert.equal(TUTOR_LANGUAGE_LABELS.yo, "Yorùbá");
+  assert.equal(TUTOR_LANGUAGE_LABELS.ig, "Ígbò");
+  assert.equal(TUTOR_LANGUAGE_LABELS.pcm, "Naijá");
+  assert.equal(TUTOR_LANGUAGE_LABELS.ha, "Hausa");
+});
+
 test("Pidgin system instruction names Naija Pidgin explicitly", () => {
   const text = tutorLanguageInstruction("pcm");
-  assert.match(text, /Nigerian Pidgin|Naija/i);
+  assert.match(text, /Nigerian Pidgin|Naijá/i);
   assert.match(text, /brackets/i);
+});
+
+test("Yoruba and Igbo instructions ask for tone marks", () => {
+  assert.match(tutorLanguageInstruction("yo"), /tone marks/i);
+  assert.match(tutorLanguageInstruction("yo"), /Yorùbá/);
+  assert.match(tutorLanguageInstruction("ig"), /tone marks/i);
+  assert.match(tutorLanguageInstruction("ig"), /Ígbò/);
 });

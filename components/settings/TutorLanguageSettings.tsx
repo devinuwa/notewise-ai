@@ -3,6 +3,7 @@
 import {
   noVoiceForLanguageMessage,
   TUTOR_LANGUAGE_LABELS,
+  TUTOR_LANGUAGE_NAMES_EN,
   TUTOR_LANGUAGE_VOICE_TAGS,
   TUTOR_LANGUAGES,
   tutorLanguageOrDefault,
@@ -25,22 +26,29 @@ export function TutorLanguageSettings({ value }: { value?: TutorLanguage }) {
         <span className="nw-chip bg-yellow text-ink">Beta</span>
       </div>
       <p className="mt-2 max-w-xl text-base text-ink">
-        Tutor explanations use this language. Technical terms stay in English in brackets. Live Tutor and chat both
-        follow this choice.
+        Tutor explanations use this language. Labels show native spelling and tone marks where they exist. Technical
+        terms stay in English in brackets. Live Tutor and chat both follow this choice.
       </p>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap" role="radiogroup" aria-labelledby="tutor-language">
-        {TUTOR_LANGUAGES.map((code) => (
-          <button
-            key={code}
-            type="button"
-            role="radio"
-            aria-checked={language === code}
-            className={`nw-btn min-h-11 w-full sm:w-auto ${language === code ? "" : "nw-btn-secondary"}`}
-            onClick={() => void saveTutorLanguage(code)}
-          >
-            {TUTOR_LANGUAGE_LABELS[code]}
-          </button>
-        ))}
+        {TUTOR_LANGUAGES.map((code) => {
+          const label = TUTOR_LANGUAGE_LABELS[code];
+          const english = TUTOR_LANGUAGE_NAMES_EN[code];
+          return (
+            <button
+              key={code}
+              type="button"
+              role="radio"
+              lang={code === "pcm" ? "en-NG" : code}
+              aria-checked={language === code}
+              aria-label={label === english ? english : `${label} (${english})`}
+              title={label === english ? undefined : english}
+              className={`nw-btn min-h-11 w-full sm:w-auto ${language === code ? "" : "nw-btn-secondary"}`}
+              onClick={() => void saveTutorLanguage(code)}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
       {voices.settled && !hasVoice ? (
         <p className="mt-3 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
@@ -50,7 +58,7 @@ export function TutorLanguageSettings({ value }: { value?: TutorLanguage }) {
       {voices.settled && hasVoice && language !== "en" ? (
         <p className="mt-3 text-sm text-muted">
           {language === "pcm"
-            ? "This device can speak Nigerian Pidgin with an English voice (phones rarely ship a Pidgin voice). Live Tutor and Listen will read answers aloud."
+            ? "This device can speak Naijá with an English voice (phones rarely ship a Pidgin voice). Live Tutor and Listen will read answers aloud."
             : `This device has a matching voice for ${TUTOR_LANGUAGE_LABELS[language]}, so Listen can speak Tutor answers.`}
         </p>
       ) : null}

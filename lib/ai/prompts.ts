@@ -15,7 +15,7 @@ const TUTOR_SYSTEM_BASE =
 export const TUTOR_SYSTEM_PROMPT = `${TUTOR_SYSTEM_BASE}${tutorLanguageInstruction("en")}`;
 
 export const TUTOR_SPOKEN_EXTRA =
-  " Spoken answer: no markdown, no lists, under 80 words unless asked for more.";
+  " Spoken answer: no markdown, no lists, under 60 words unless asked for more. Lead with the direct answer in the first sentence.";
 
 export function tutorSystemPrompt(language: TutorLanguage) {
   return `${TUTOR_SYSTEM_BASE}${tutorLanguageInstruction(language)}`;
