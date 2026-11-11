@@ -20,9 +20,18 @@ export function StudyBrainLoader() {
   }, []);
   if (brain.phase === "failed") {
     return (
-      <p className="mt-4 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
-        The study brain could not download. Search still works by keywords.
-      </p>
+      <div className="mt-4 border-2 border-ink bg-yellow px-3 py-2 text-sm text-ink" role="status">
+        <p>The study brain could not download. Search still works by keywords.</p>
+        <Button
+          type="button"
+          className="mt-2"
+          onClick={() => {
+            void import("@/lib/rag/embed-client").then((mod) => mod.retryEmbedder({ manual: true }));
+          }}
+        >
+          Try again
+        </Button>
+      </div>
     );
   }
   if (brain.phase !== "downloading") return null;

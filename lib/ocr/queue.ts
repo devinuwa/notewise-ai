@@ -144,7 +144,7 @@ async function work(id: string, mode: OcrMode) {
 async function smallImage(page: NotePage) {
   if (page.ocrBlob) return { blob: page.ocrBlob, preprocessMs: page.preprocessMs ?? 0 };
   const started = performance.now();
-  const blob = await makeOcrJpeg(page.imageBlob);
+  const blob = await makeOcrJpeg(page.imageBlob, "cloud");
   const preprocessMs = (page.preprocessMs ?? 0) + Math.round(performance.now() - started);
   await getDb().notePages.update(page.id, { ocrBlob: blob, preprocessMs });
   return { blob, preprocessMs };

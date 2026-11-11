@@ -34,6 +34,14 @@ function plainProgress(update: object): ProgressNote {
   };
 }
 
+function errorText(error: unknown) {
+  if (error instanceof Error) {
+    const cause = error.cause instanceof Error ? error.cause.message : error.cause ? String(error.cause) : "";
+    return cause ? `${error.message} (${cause})` : error.message;
+  }
+  return "The study brain could not download.";
+}
+
 function load() {
   if (!loading) {
     loading = pipeline("feature-extraction", MODEL, {
@@ -44,10 +52,16 @@ function load() {
           scope.postMessage({ type: "progress", note: plainProgress(update) });
         }
       },
-    }).then((created) => {
-      extractor = created;
-      scope.postMessage({ type: "ready" });
-    });
+    })
+      .then((created) => {
+        extractor = created;
+        scope.postMessage({ type: "ready" });
+      })
+      .catch((error: unknown) => {
+        loading = null;
+        extractor = null;
+        throw error;
+      });
   }
   return loading;
 }
@@ -56,9 +70,7 @@ scope.addEventListener("message", (event: MessageEvent<Incoming>) => {
   const message = event.data;
   if (message.type === "load") {
     load().catch((error: unknown) => {
-      loading = null;
-      const text = error instanceof Error ? error.message : "The study brain could not download.";
-      scope.postMessage({ type: "error", message: text });
+      scope.postMessage({ type: "error", message: errorText(error) });
     });
     return;
   }

@@ -42,3 +42,9 @@ test("Yoruba and Igbo instructions ask for tone marks", () => {
   assert.match(tutorLanguageInstruction("ig"), /tone marks/i);
   assert.match(tutorLanguageInstruction("ig"), /Ígbò/);
 });
+
+test("Hausa instruction does not duplicate Hausa (Hausa)", () => {
+  const text = tutorLanguageInstruction("ha");
+  assert.match(text, /Write the whole answer in Hausa\./);
+  assert.equal(text.includes("Hausa (Hausa)"), false);
+});

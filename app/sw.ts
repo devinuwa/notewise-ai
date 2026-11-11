@@ -8,6 +8,15 @@ declare const self: ServiceWorkerGlobalScope & {
   __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
 };
 
+function entryUrl(entry: PrecacheEntry | string) {
+  return typeof entry === "string" ? entry : entry.url;
+}
+
+/** Turbopack dedicated workers read bootstrap JSON from location.hash (#params=…). */
+function isTurbopackWorkerUrl(pathname: string) {
+  return pathname.includes("turbopack-worker");
+}
+
 /**
  * Custom runtimeCaching (not defaultCache) so esbuild only bundles one
  * copy of Serwist's Strategy class — otherwise offline fallbacks break.
@@ -19,12 +28,17 @@ const runtimeCaching: RuntimeCaching[] = [
     handler: new NetworkOnly(),
   },
   {
-    // Embedding model + ONNX WASM from Hugging Face / jsDelivr.
+    // Remote model hosts: never CacheFirst — a truncated HF/ORT response poisoned the study brain.
+    // transformers.js keeps its own browser cache; same-origin tessdata WASM stays CacheFirst below.
     matcher: ({ url }) =>
       url.hostname.includes("huggingface.co") ||
       url.hostname.includes("hf.co") ||
-      url.hostname.includes("jsdelivr.net") ||
-      /\.(?:onnx|wasm)$/i.test(url.pathname),
+      url.hostname.includes("jsdelivr.net"),
+    handler: new NetworkOnly(),
+  },
+  {
+    // Local OCR / PDF WASM assets shipped with the app.
+    matcher: ({ sameOrigin, url }) => sameOrigin && /\.(?:onnx|wasm)$/i.test(url.pathname),
     handler: new CacheFirst({ cacheName: "notewise-models" }),
   },
   {
@@ -41,11 +55,15 @@ const runtimeCaching: RuntimeCaching[] = [
     handler: new CacheFirst({ cacheName: "notewise-icons" }),
   },
   {
+    // Skip destination=worker and turbopack-worker entrypoints entirely (no respondWith).
+    // Any SW respondWith — even NetworkOnly — drops the #params= hash the worker needs,
+    // which surfaces as "Missing worker bootstrap config" and kills the study brain.
     matcher: ({ request, url: { pathname } }) =>
-      request.destination === "style" ||
-      request.destination === "script" ||
-      request.destination === "worker" ||
-      pathname.startsWith("/_next/static/"),
+      request.destination !== "worker" &&
+      !isTurbopackWorkerUrl(pathname) &&
+      (request.destination === "style" ||
+        request.destination === "script" ||
+        pathname.startsWith("/_next/static/")),
     handler: new StaleWhileRevalidate({ cacheName: "notewise-static" }),
   },
   {
@@ -60,7 +78,8 @@ const runtimeCaching: RuntimeCaching[] = [
 ];
 
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  // Precaching the worker entry also intercepts it and strips #params=.
+  precacheEntries: (self.__SW_MANIFEST ?? []).filter((entry) => !isTurbopackWorkerUrl(entryUrl(entry))),
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: false,

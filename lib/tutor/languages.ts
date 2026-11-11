@@ -77,8 +77,9 @@ export function tutorLanguageInstruction(language: TutorLanguage) {
   if (language === "ig") {
     return ` Write the whole answer in Igbo (Ígbò). Use correct Igbo tone marks and dotted vowels (ị, ọ, ụ, etc.) whenever you can. Keep every technical or syllabus term in English inside brackets, for example: (photosynthesis). If you are not sure, say so in Ígbò and tell the student to check with their teacher.`;
   }
-  // Hausa: Latin orthography; no English stand-in for the spoken language name.
-  return ` Write the whole answer in ${name} (${label}). Keep every technical or syllabus term in English inside brackets, for example: (photosynthesis). If you are not sure, say so in ${name} and tell the student to check with their teacher.`;
+  // Hausa: Latin orthography — name and label are the same, so do not duplicate.
+  const named = name === label ? name : `${name} (${label})`;
+  return ` Write the whole answer in ${named}. Keep every technical or syllabus term in English inside brackets, for example: (photosynthesis). If you are not sure, say so in ${name} and tell the student to check with their teacher.`;
 }
 
 export function noVoiceForLanguageMessage(language: TutorLanguage) {

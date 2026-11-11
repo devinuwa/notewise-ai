@@ -6,7 +6,10 @@ export type PixelCrop = {
 };
 
 const WORKING_SIDE = 3200;
-const OCR_SIDE = 1280;
+/** Colour JPEG for Gemini handwriting — keep detail, avoid harsh grayscale. */
+const CLOUD_OCR_SIDE = 1600;
+/** Grayscale JPEG for Tesseract — smaller and high-contrast. */
+const DEVICE_OCR_SIDE = 1400;
 const OCR_MAX_BYTES = 400 * 1024;
 
 export type PreparedPage = {
@@ -15,6 +18,8 @@ export type PreparedPage = {
   ocrBlob: Blob;
   preprocessMs: number;
 };
+
+export type OcrPrepKind = "cloud" | "device";
 
 function loadImage(url: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -133,8 +138,17 @@ async function blobFrom(canvas: OffscreenCanvas | HTMLCanvasElement, quality: nu
   return canvasToJpeg(canvas, quality);
 }
 
-async function drawFilteredJpeg(bitmap: ImageBitmap, maxSide: number, quality: number) {
-  const size = fitted(bitmap.width, bitmap.height, maxSide);
+type DrawOptions = {
+  maxSide: number;
+  quality: number;
+  /** CSS filter applied when drawing into the OCR canvas. */
+  filter: string;
+  /** Extra pixel pass after draw (device path only). */
+  afterDraw?: (context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, width: number, height: number) => void;
+};
+
+async function drawOcrJpeg(bitmap: ImageBitmap, options: DrawOptions) {
+  const size = fitted(bitmap.width, bitmap.height, options.maxSide);
   const canvas =
     typeof OffscreenCanvas === "undefined"
       ? document.createElement("canvas")
@@ -145,32 +159,87 @@ async function drawFilteredJpeg(bitmap: ImageBitmap, maxSide: number, quality: n
   }
   const context = canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
   if (!context) throw new Error("This browser could not prepare the page.");
-  context.filter = "grayscale(1) contrast(1.15)";
+  context.filter = options.filter;
   context.drawImage(bitmap, 0, 0, size.width, size.height);
-  return blobFrom(canvas, quality);
+  context.filter = "none";
+  options.afterDraw?.(context, size.width, size.height);
+  return blobFrom(canvas, options.quality);
 }
 
-/** Small grayscale JPEG for the reader. The colour crop is what the student sees. */
-export async function makeOcrJpeg(source: Blob) {
+/** Mild contrast stretch so faint pencil / pen ink stands out without crushing shadows. */
+function stretchContrast(
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  width: number,
+  height: number,
+) {
+  try {
+    const image = context.getImageData(0, 0, width, height);
+    const pixels = image.data;
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const value = pixels[i] ?? 0;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    const range = Math.max(1, max - min);
+    // Skip nearly blank / already-flat pages.
+    if (range < 28) return;
+    const scale = 255 / range;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const value = Math.round(((pixels[i] ?? 0) - min) * scale);
+      pixels[i] = value;
+      pixels[i + 1] = value;
+      pixels[i + 2] = value;
+    }
+    context.putImageData(image, 0, 0);
+  } catch {
+    // Some OffscreenCanvas contexts refuse getImageData; CSS filters still applied.
+  }
+}
+
+async function encodeWithinBudget(bitmap: ImageBitmap, kind: OcrPrepKind) {
+  const startSide = kind === "cloud" ? CLOUD_OCR_SIDE : DEVICE_OCR_SIDE;
+  const startQuality = kind === "cloud" ? 0.82 : 0.72;
+  const filter =
+    kind === "cloud"
+      ? "contrast(1.08) saturate(0.92)"
+      : "grayscale(1) contrast(1.35) brightness(1.04)";
+  const afterDraw = kind === "device" ? stretchContrast : undefined;
+
+  let side = startSide;
+  let quality = startQuality;
+  let blob = await drawOcrJpeg(bitmap, { maxSide: side, quality, filter, afterDraw });
+  for (const next of kind === "cloud" ? [0.7, 0.55] : [0.55, 0.4]) {
+    if (blob.size <= OCR_MAX_BYTES) break;
+    quality = next;
+    blob = await drawOcrJpeg(bitmap, { maxSide: side, quality, filter, afterDraw });
+  }
+  for (const next of kind === "cloud" ? [1280, 1024] : [1200, 960, 800]) {
+    if (blob.size <= OCR_MAX_BYTES) break;
+    side = next;
+    blob = await drawOcrJpeg(bitmap, { maxSide: side, quality, filter, afterDraw });
+  }
+  return blob;
+}
+
+/**
+ * JPEG for the reader.
+ * - cloud: colour + light contrast (handwriting stays readable for Gemini)
+ * - device: grayscale + stronger contrast (printed text for Tesseract)
+ */
+export async function makeOcrJpeg(source: Blob, kind: OcrPrepKind = "cloud") {
   const bitmap = await createImageBitmap(source);
   try {
-    let side = OCR_SIDE;
-    let quality = 0.7;
-    let blob = await drawFilteredJpeg(bitmap, side, quality);
-    for (const next of [0.55, 0.4]) {
-      if (blob.size <= OCR_MAX_BYTES) break;
-      quality = next;
-      blob = await drawFilteredJpeg(bitmap, side, quality);
-    }
-    for (const next of [1024, 800]) {
-      if (blob.size <= OCR_MAX_BYTES) break;
-      side = next;
-      blob = await drawFilteredJpeg(bitmap, side, quality);
-    }
-    return blob;
+    return await encodeWithinBudget(bitmap, kind);
   } finally {
     bitmap.close();
   }
+}
+
+/** Re-prep a stored colour OCR/crop blob for on-device Tesseract. */
+export async function prepareForDeviceOcr(source: Blob) {
+  return makeOcrJpeg(source, "device");
 }
 
 /** Shrink a huge camera photo before the crop tool, so the canvas stays within what phones can draw. */
@@ -196,7 +265,8 @@ export async function preparePageImage(sourceUrl: string, pixelCrop: PixelCrop, 
   const cropped = await renderCrop(sourceUrl, pixelCrop, rotation);
   const cropBlob = await canvasToJpeg(cropped, 0.92);
   const started = performance.now();
-  const ocrBlob = await makeOcrJpeg(cropBlob);
+  // Store the cloud-oriented blob; on-device reading re-preps just before Tesseract.
+  const ocrBlob = await makeOcrJpeg(cropBlob, "cloud");
   return { cropBlob, imageBlob: cropBlob, ocrBlob, preprocessMs: Math.round(performance.now() - started) };
 }
 

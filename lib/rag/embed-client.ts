@@ -24,9 +24,13 @@ type Waiter = {
   reject: (error: Error) => void;
 };
 
+const MAX_AUTO_TRIES = 3;
+
 let worker: Worker | null = null;
 let loadPromise: Promise<void> | null = null;
 let ready = false;
+let autoTries = 0;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const files = new Map<string, { loaded: number; total: number }>();
 const waiters = new Map<number, Waiter>();
 let nextId = 0;
@@ -48,6 +52,24 @@ function postProgress(note: ProgressNote) {
   if (downloading) setBrain({ phase: "downloading", progress });
 }
 
+function failBrain(message: string) {
+  ready = false;
+  setBrain({ phase: "failed", progress: 0 });
+  if (typeof console !== "undefined") {
+    console.warn("[study-brain]", message);
+  }
+}
+
+function scheduleAutoRetry() {
+  if (autoTries >= MAX_AUTO_TRIES) return;
+  if (retryTimer) return;
+  const waitMs = Math.min(1000 * 2 ** Math.max(0, autoTries - 1), 8000);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void retryEmbedder({ manual: false });
+  }, waitMs);
+}
+
 function onMessage(event: MessageEvent<WorkerOut>) {
   const message = event.data;
   if (message.type === "progress") {
@@ -56,6 +78,7 @@ function onMessage(event: MessageEvent<WorkerOut>) {
   }
   if (message.type === "ready") {
     ready = true;
+    autoTries = 0;
     setBrain({ phase: "ready", progress: 100 });
     return;
   }
@@ -66,8 +89,8 @@ function onMessage(event: MessageEvent<WorkerOut>) {
   }
   if (message.type === "error") {
     if (message.id === undefined) {
-      ready = false;
-      setBrain({ phase: "failed", progress: 0 });
+      failBrain(message.message || "The study brain could not download.");
+      scheduleAutoRetry();
       return;
     }
     waiters.get(message.id)?.reject(new Error(message.message));
@@ -75,47 +98,104 @@ function onMessage(event: MessageEvent<WorkerOut>) {
   }
 }
 
+async function clearPoisonedModelCache() {
+  if (typeof caches === "undefined") return;
+  try {
+    // Serwist CacheFirst can keep a bad HF/ORT response across retries; drop it before the next try.
+    await caches.delete("notewise-models");
+  } catch {
+    // Cache API may be blocked in private mode — load can still use transformers' own cache.
+  }
+}
+
+function killWorker() {
+  if (!worker) return;
+  worker.removeEventListener("message", onMessage);
+  worker.terminate();
+  worker = null;
+}
+
 function getWorker() {
   if (worker) return worker;
   worker = new Worker(new URL("./embed.worker.ts", import.meta.url), { type: "module" });
   worker.addEventListener("message", onMessage);
-  worker.addEventListener("error", () => {
-    ready = false;
-    setBrain({ phase: "failed", progress: 0 });
+  worker.addEventListener("error", (event) => {
+    const detail = event.message || "The study brain worker stopped.";
+    failBrain(detail);
     loadPromise = null;
+    killWorker();
     for (const waiter of waiters.values()) waiter.reject(new Error("The study brain stopped."));
     waiters.clear();
+    scheduleAutoRetry();
   });
   return worker;
+}
+
+function beginLoad() {
+  files.clear();
+  ready = false;
+  setBrain({ phase: "downloading", progress: 0 });
+  loadPromise = new Promise<void>((resolve, reject) => {
+    try {
+      getWorker().postMessage({ type: "load" });
+    } catch {
+      failBrain("The study brain could not start.");
+      reject(new Error("The study brain could not start."));
+      scheduleAutoRetry();
+      return;
+    }
+    const stop = subscribeBrain(() => {
+      const phase = getBrain().phase;
+      if (phase === "ready") {
+        stop();
+        resolve();
+      } else if (phase === "failed") {
+        stop();
+        reject(new Error("The study brain could not download."));
+      }
+    });
+  });
+  loadPromise.catch(() => undefined);
+  return loadPromise;
 }
 
 /** Starts the one-time model download. Later calls reuse the cached model. */
 export function kickEmbedder() {
   if (typeof window === "undefined") return;
-  if (ready || getBrain().phase === "failed") return;
-  if (getBrain().phase === "idle") setBrain({ phase: "downloading", progress: 0 });
-  if (!loadPromise) {
-    loadPromise = new Promise<void>((resolve, reject) => {
-      try {
-        getWorker().postMessage({ type: "load" });
-      } catch {
-        setBrain({ phase: "failed", progress: 0 });
-        reject(new Error("The study brain could not start."));
-        return;
-      }
-      const stop = subscribeBrain(() => {
-        const phase = getBrain().phase;
-        if (phase === "ready") {
-          stop();
-          resolve();
-        } else if (phase === "failed") {
-          stop();
-          reject(new Error("The study brain could not download."));
-        }
-      });
-    });
-    loadPromise.catch(() => undefined);
+  if (ready || getBrain().phase === "ready") return;
+  if (getBrain().phase === "downloading" && loadPromise) return;
+  // Failed loads used to soft-lock the SPA; schedule recovery instead of no-op.
+  if (getBrain().phase === "failed") {
+    scheduleAutoRetry();
+    return;
   }
+  if (!loadPromise) {
+    autoTries += 1;
+    beginLoad();
+  }
+}
+
+/** Recovery after a failed download — new worker, fresh Serwist model cache. */
+export async function retryEmbedder(options: { manual?: boolean } = {}) {
+  if (typeof window === "undefined") return;
+  if (ready || getBrain().phase === "ready") return;
+  if (getBrain().phase === "downloading" && loadPromise) return;
+
+  if (options.manual) {
+    autoTries = 0;
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  } else if (autoTries >= MAX_AUTO_TRIES) {
+    return;
+  }
+
+  autoTries += 1;
+  loadPromise = null;
+  killWorker();
+  await clearPoisonedModelCache();
+  beginLoad();
 }
 
 export function isEmbedderReady() {

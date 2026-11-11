@@ -1,5 +1,5 @@
-import { parseTranscription } from "@/lib/ocr/parse";
 import { recognizeOnDevice } from "@/lib/ocr/tesseract";
+import { prepareForDeviceOcr } from "@/lib/scan/prepare-image";
 import type { OcrRun } from "@/lib/ocr/types";
 
 const MAX_TRIES = 3;
@@ -112,11 +112,17 @@ export async function readCloudStream(blob: Blob, onText: (full: string) => void
 }
 
 export async function readOnDevice(blob: Blob, usedFallback: boolean): Promise<OcrRun> {
-  const rawOcrText = await recognizeOnDevice(blob);
-  const parsed = parseTranscription(rawOcrText);
+  // Colour cloud blobs are re-prepped with stronger grayscale/contrast for Tesseract.
+  const deviceBlob = await prepareForDeviceOcr(blob);
+  const recognized = await recognizeOnDevice(deviceBlob);
   return {
-    rawOcrText,
+    // Match cloud OCR: rawOcrText is the provider's unprocessed string; result.text is cleaned.
+    rawOcrText: recognized.rawText,
     usedFallback,
-    result: { text: parsed.text, flaggedWords: parsed.flaggedWords, provider: "tesseract" },
+    result: {
+      text: recognized.text,
+      flaggedWords: recognized.flaggedWords,
+      provider: "tesseract",
+    },
   };
 }
