@@ -6,6 +6,8 @@ import { PixelStairs } from "@/components/ui/PixelStairs";
 export default function ClearedPage() {
   // Full reload after wipe — soft nav can leave Dexie/live-query state half-open on /.
   function startFresh() {
+    // Hard navigation is intentional here (not soft router.push).
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- reset IndexedDB listeners
     window.location.assign("/");
   }
 

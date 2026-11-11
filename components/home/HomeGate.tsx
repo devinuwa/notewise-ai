@@ -1,17 +1,16 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { HomeScreen } from "@/components/home/HomeScreen";
-import { Onboarding } from "@/components/home/Onboarding";
 import { LandingPage } from "@/components/landing/LandingPage";
 import { useSplashDone } from "@/components/shell/SplashGate";
 import { PixelLoader } from "@/components/ui/PixelLoader";
-import { saveStudentName } from "@/lib/notebook";
 import { isNotebookError, useNotebook, useTitleCaseStoredName } from "@/lib/use-notebook";
 
 /**
  * "/" shows the marketing landing until a name is saved, then My NoteWise.
- * "?start=1" jumps straight to the name step. Splash stays up while Dexie loads
+ * Legacy "?start=1" redirects to /welcome. Splash stays up while Dexie loads
  * so the wrong page never flashes.
  */
 export function HomeGate() {
@@ -21,6 +20,13 @@ export function HomeGate() {
   const snapshot = useNotebook();
   const storedName = snapshot && !isNotebookError(snapshot) ? snapshot.settings?.name : undefined;
   useTitleCaseStoredName(storedName);
+
+  useEffect(() => {
+    if (!ready || !snapshot || isNotebookError(snapshot)) return;
+    const name = snapshot.settings?.name?.trim() ?? "";
+    // Hard nav — soft replace can leave the landing tree mounted under /welcome.
+    if (!name && start) window.location.replace("/welcome");
+  }, [ready, snapshot, start]);
 
   if (!ready || snapshot === undefined) {
     return (
@@ -42,10 +48,14 @@ export function HomeGate() {
 
   const name = snapshot.settings?.name?.trim() ?? "";
   if (!name && start) {
-    return <Onboarding onSave={saveStudentName} />;
+    return (
+      <main className="grid min-h-dvh place-items-center bg-green-600">
+        <PixelLoader caption="Opening NoteWise…" />
+      </main>
+    );
   }
   if (!name) {
-    return <LandingPage openHref="/?start=1" />;
+    return <LandingPage openHref="/welcome" />;
   }
 
   return <HomeScreen />;

@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function AboutPage() {
-  return <LandingPage openHref="/?start=1" />;
+  return <LandingPage openHref="/welcome" />;
 }

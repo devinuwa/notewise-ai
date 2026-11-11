@@ -13,7 +13,7 @@ const LINKS = [
   { href: "#faq", label: "FAQ" },
 ] as const;
 
-export function LandingHeader({ openHref = "/?start=1" }: { openHref?: string }) {
+export function LandingHeader({ openHref = "/welcome" }: { openHref?: string }) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
 
@@ -39,7 +39,9 @@ export function LandingHeader({ openHref = "/?start=1" }: { openHref?: string })
               {link.label}
             </Link>
           ))}
-          <Button href={openHref}>Open NoteWise</Button>
+          <Button href={openHref} hard>
+            Open NoteWise
+          </Button>
         </nav>
         <button
           type="button"
@@ -66,9 +68,9 @@ export function LandingHeader({ openHref = "/?start=1" }: { openHref?: string })
                 {link.label}
               </Link>
             ))}
-            <Link href={openHref} className="nw-btn w-full" onClick={() => setOpen(false)}>
+            <a href={openHref} className="nw-btn w-full" onClick={() => setOpen(false)}>
               Open NoteWise
-            </Link>
+            </a>
           </nav>
         </div>
       ) : null}

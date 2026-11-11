@@ -20,7 +20,7 @@ import {
 import { LANDING_STATS } from "@/lib/landing-stats";
 import { SITE_NAME } from "@/lib/site";
 
-export function LandingPage({ openHref = "/?start=1" }: { openHref?: string }) {
+export function LandingPage({ openHref = "/welcome" }: { openHref?: string }) {
   return (
     <div className="bg-page text-ink">
       <LandingHeader openHref={openHref} />
@@ -40,7 +40,9 @@ export function LandingPage({ openHref = "/?start=1" }: { openHref?: string }) {
                 questions about, and practise from. Free. No account.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Button href={openHref}>Start free</Button>
+                <Button href={openHref} hard>
+                  Start free
+                </Button>
                 <Button href="#how" variant="secondary">
                   See how it works
                 </Button>

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="bg-page text-ink">
-      <LandingHeader openHref="/?start=1" />
+      <LandingHeader openHref="/welcome" />
       <main id="content" className="mx-auto w-full max-w-[720px] px-4 py-12 sm:px-6">
         <p className="nw-mono text-[12px] text-muted">Privacy</p>
         <div className="mt-3">
@@ -95,7 +95,9 @@ export default function PrivacyPage() {
         </section>
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <Button href="/?start=1">Open NoteWise</Button>
+          <Button href="/welcome" hard>
+            Open NoteWise
+          </Button>
           <Button href="/guide" variant="secondary">
             How to use
           </Button>

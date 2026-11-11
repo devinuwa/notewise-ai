@@ -157,21 +157,6 @@ export function ScanScreen() {
     setCropQueue((current) => advanceCrop(current));
   }
 
-  function clearBatch() {
-    setPages((current) => {
-      current.forEach(revokePage);
-      return [];
-    });
-    setCropQueue((current) => {
-      if (current.active) URL.revokeObjectURL(current.active.sourceUrl);
-      current.pending.forEach((job) => URL.revokeObjectURL(job.sourceUrl));
-      return { active: null, pending: [] };
-    });
-    setNotice("");
-    setSaveError("");
-    setStep("capture");
-  }
-
   async function saveAndOpen(subjectName: string, topicName: string) {
     if (saving.current) return;
     saving.current = true;

@@ -17,7 +17,7 @@ export function useSplashDone() {
   return useContext(SplashContext);
 }
 
-const MARKETING_PATHS = new Set(["/about", "/guide", "/privacy"]);
+const MARKETING_PATHS = new Set(["/about", "/guide", "/privacy", "/welcome"]);
 
 export function SplashGate({ children }: { children: React.ReactNode }) {
   return (

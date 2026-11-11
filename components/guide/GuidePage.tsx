@@ -94,7 +94,7 @@ const TROUBLE = [
 export function GuidePage() {
   return (
     <div className="bg-page text-ink">
-      <LandingHeader openHref="/?start=1" />
+      <LandingHeader openHref="/welcome" />
       <main id="content" className="mx-auto w-full max-w-[960px] px-4 py-12 sm:px-6">
         <p className="nw-mono text-[12px] text-muted">Guide</p>
         <div className="mt-3">
@@ -143,7 +143,9 @@ export function GuidePage() {
         </section>
 
         <div className="mt-12 flex flex-wrap gap-3">
-          <Button href="/?start=1">Open NoteWise</Button>
+          <Button href="/welcome" hard>
+            Open NoteWise
+          </Button>
           <Button href="/privacy" variant="secondary">
             Privacy
           </Button>
