@@ -144,7 +144,11 @@ export async function POST(request: Request) {
 
   if (!upstream.ok || !upstream.body) {
     return Response.json(
-      { error: "The handwriting service could not read this page." },
+      {
+        error: "The handwriting service could not read this page.",
+        code: "upstream_error",
+        upstreamStatus: upstream.status,
+      },
       { status: upstream.ok ? 502 : upstream.status },
     );
   }

@@ -96,7 +96,7 @@ function setToken(accessToken: string, expiresIn: number) {
 /** Open the Google consent popup. Token is kept in memory only. */
 export async function connectDrive(prompt: "" | "consent" = "consent"): Promise<DriveToken> {
   if (!driveConfigured()) {
-    throw new DriveError("Google Drive is not set up on this computer yet. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID.");
+    throw new DriveError("Google Drive backup is not available on this copy of NoteWise yet.");
   }
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     throw new DriveError("You look offline. Connect to the internet and try again.");

@@ -115,7 +115,13 @@ export async function POST(request: Request) {
 
   if (!upstream.ok || !upstream.body) {
     await upstream.body?.cancel().catch(() => undefined);
-    return Response.json({ error: "The tutor could not answer just now." }, { status: 502 });
+    // Keep the student's friendly message, but pass Gemini's real status through
+    // (and in the body) so a bad key or model is diagnosable instead of a flat 502.
+    const status = upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502;
+    return Response.json(
+      { error: "The tutor could not answer just now.", code: "upstream_error", upstreamStatus: upstream.status },
+      { status },
+    );
   }
 
   const reader = upstream.body.getReader();

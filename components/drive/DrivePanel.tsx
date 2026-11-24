@@ -134,7 +134,7 @@ export function DrivePanel({ compact = false }: { compact?: boolean }) {
       <section className={compact ? "" : "mt-8"}>
         {!compact ? <p className="nw-mono text-[12px] text-muted">Google Drive</p> : null}
         <p className={`${compact ? "" : "mt-2"} max-w-xl text-base text-ink`}>
-          Google Drive is not set up on this computer yet. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID. See the README.
+          Google Drive backup is not available on this copy of NoteWise yet. Your notes are still safe on this device.
         </p>
       </section>
     );
