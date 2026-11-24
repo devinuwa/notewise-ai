@@ -59,18 +59,28 @@ async function callGemini(
   for (const model of candidateModels(setup)) {
     let payload = body;
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${method}`,
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-goog-api-key": setup.apiKey,
+      let response: Response;
+      try {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${method}`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-goog-api-key": setup.apiKey,
+            },
+            body: JSON.stringify(payload),
+            signal: attemptSignal(signal),
           },
-          body: JSON.stringify(payload),
-          signal: attemptSignal(signal),
-        },
-      );
+        );
+      } catch (caught) {
+        // The student cancelling (navigating away) is not a failure to retry.
+        if (signal?.aborted) throw caught;
+        // A network error or the per-attempt timeout: log it and try the next model
+        // instead of throwing, which the routes would surface as a bare 500.
+        console.error(`NoteWise: Gemini call failed (model=${model}, network error).`);
+        break;
+      }
       if (response.ok) return response;
       last = response;
       // Status and model only. The key and the student's text never go to the log.
@@ -90,8 +100,10 @@ async function callGemini(
       return response; // 401 and 403 are key or permission problems; hand the response back as before.
     }
   }
-  // Every candidate was rejected. last is always set here because the loop ran at least once.
-  return last as Response;
+  // Every candidate was rejected or unreachable. When no response ever came back,
+  // return a synthetic 502 so callers keep their normal error handling.
+  if (last) return last;
+  return Response.json({ error: "Gemini could not be reached." }, { status: 502 });
 }
 
 /** One JSON answer. Practice uses this so the quiz can be checked before it is shown. */

@@ -74,6 +74,30 @@ test("an overloaded configured model falls back to the next model", async () => 
   }
 });
 
+test("a network error on the configured model falls back, and total failure returns 502 instead of throwing", async () => {
+  const stub = stubFetch((call) => {
+    if (call.url.includes("gemini-old-model")) throw new Error("socket hang up");
+    return reply(200);
+  });
+  try {
+    const response = await openGeminiContent(setup, { contents: [] });
+    assert.equal(response.ok, true);
+    assert.equal(stub.calls.length, 2);
+  } finally {
+    stub.restore();
+  }
+
+  const dead = stubFetch(() => {
+    throw new Error("socket hang up");
+  });
+  try {
+    const response = await openGeminiContent(setup, { contents: [] });
+    assert.equal(response.status, 502);
+  } finally {
+    dead.restore();
+  }
+});
+
 test("a 403 is returned at once, without trying other models", async () => {
   const stub = stubFetch(() => reply(403));
   try {
