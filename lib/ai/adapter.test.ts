@@ -62,6 +62,18 @@ test("a 400 with thinkingConfig retries the same model without it", async () => 
   }
 });
 
+test("an overloaded configured model falls back to the next model", async () => {
+  const stub = stubFetch((call) => (call.url.includes("gemini-old-model") ? reply(503) : reply(200)));
+  try {
+    const response = await openGeminiContent(setup, { contents: [] });
+    assert.equal(response.ok, true);
+    assert.equal(stub.calls.length, 2);
+    assert.match(stub.calls[1].url, /gemini-3\.5-flash-lite/);
+  } finally {
+    stub.restore();
+  }
+});
+
 test("a 403 is returned at once, without trying other models", async () => {
   const stub = stubFetch(() => reply(403));
   try {

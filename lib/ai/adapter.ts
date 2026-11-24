@@ -12,14 +12,26 @@ export function readGeminiSetup(): GeminiSetup | null {
 }
 
 /**
- * Models tried, in order, when Gemini rejects the configured one with a
- * 400 or 404. That rejection usually means the configured model name is
- * retired or not available to this key, or that the model does not accept
- * one of the request options. Trying the current Flash-Lite / Flash models
- * keeps the app working when a model name ages out, instead of every AI
- * feature failing at once. The configured model is always tried first.
+ * Models tried, in order, when Gemini cannot serve the configured one.
+ * A 400 or 404 usually means the model name is retired, not available to
+ * this key, or does not accept one of the request options; a 429, 500 or
+ * 503 is usually that one model being out of quota or overloaded, and
+ * another model often answers. Trying the current Flash-Lite / Flash
+ * models keeps the app working instead of every AI feature failing at
+ * once. The configured model is always tried first. Only 401 and 403
+ * stop the chain: a key or permission problem affects every model.
  */
 const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"];
+
+const FALLBACK_STATUSES = new Set([400, 404, 429, 500, 503]);
+
+/** One attempt never waits longer than this, so a hung model cannot eat the whole request budget. */
+const ATTEMPT_TIMEOUT_MS = 20_000;
+
+function attemptSignal(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(ATTEMPT_TIMEOUT_MS);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 function candidateModels(setup: GeminiSetup): string[] {
   return [...new Set([setup.model, ...FALLBACK_MODELS])];
@@ -56,7 +68,7 @@ async function callGemini(
             "x-goog-api-key": setup.apiKey,
           },
           body: JSON.stringify(payload),
-          signal,
+          signal: attemptSignal(signal),
         },
       );
       if (response.ok) return response;
@@ -71,11 +83,11 @@ async function callGemini(
           continue;
         }
       }
-      if (response.status === 400 || response.status === 404) {
+      if (FALLBACK_STATUSES.has(response.status)) {
         await response.body?.cancel().catch(() => undefined);
         break; // Try the next candidate model.
       }
-      return response; // 401, 403, 429 and 5xx are not model problems; hand the response back as before.
+      return response; // 401 and 403 are key or permission problems; hand the response back as before.
     }
   }
   // Every candidate was rejected. last is always set here because the loop ran at least once.
