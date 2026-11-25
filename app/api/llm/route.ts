@@ -1,4 +1,5 @@
 import { openGeminiStream, readGeminiSetup } from "@/lib/ai/adapter";
+import { groqDeltaText, openGroqStream, readGroqSetup, type GroqMessage } from "@/lib/ai/groq";
 import { handleExamProfile } from "@/lib/exam/analyse";
 import { handleQuiz } from "@/lib/ai/quiz";
 import { TUTOR_SPOKEN_EXTRA, tutorSystemPrompt } from "@/lib/ai/prompts";
@@ -66,6 +67,77 @@ function contentsFor(history: TutorTurn[], question: string, notes: string) {
   return contents;
 }
 
+/** The same conversation in Groq's chat shape, for the backup tutor. */
+function messagesForGroq(system: string, history: TutorTurn[], question: string, notes: string): GroqMessage[] {
+  const messages: GroqMessage[] = [{ role: "system", content: system }];
+  const push = (role: "user" | "assistant", text: string) => {
+    const last = messages[messages.length - 1];
+    if (last && last.role === role) {
+      last.content = `${last.content}\n\n${text}`;
+      return;
+    }
+    messages.push({ role, content: text });
+  };
+  for (const turn of history) {
+    push(turn.role === "tutor" ? "assistant" : "user", turn.text);
+  }
+  push("user", `${notes}\n\nQuestion:\n${question}`);
+  return messages;
+}
+
+/**
+ * Relay a provider stream to the student in NoteWise's own event shape.
+ * Only the text pieces cross; the question and the notes stay out of the log.
+ */
+function relayStream(body: ReadableStream<Uint8Array>, extract: (payload: unknown) => string) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let buffer = "";
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const data = trimmed.slice(5).trim();
+            if (!data || data === "[DONE]") continue;
+            try {
+              const text = extract(JSON.parse(data));
+              if (text) controller.enqueue(encoder.encode(sse({ text })));
+            } catch {
+              // A broken event is skipped.
+            }
+          }
+        }
+        controller.enqueue(encoder.encode(sse({ done: true })));
+      } catch {
+        controller.enqueue(encoder.encode(sse({ error: "The tutor stopped while answering." })));
+      } finally {
+        controller.close();
+      }
+    },
+    cancel() {
+      void reader.cancel();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   const gate = allow(clientIp(request));
   if (!gate.ok) {
@@ -91,83 +163,67 @@ export async function POST(request: Request) {
     return Response.json({ error: parsed.error }, { status: parsed.status });
   }
 
-  const setup = readGeminiSetup();
-  if (!setup) {
+  const gemini = readGeminiSetup();
+  const groq = readGroqSetup();
+  if (!gemini && !groq) {
     return Response.json({ error: "The tutor is not set up on this computer yet." }, { status: 503 });
   }
 
   const language = tutorLanguageOrDefault(parsed.value.language);
   const base = tutorSystemPrompt(language);
   const system = parsed.value.spoken ? `${base}${TUTOR_SPOKEN_EXTRA}` : base;
-  const upstream = await openGeminiStream(
-    setup,
-    {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: contentsFor(parsed.value.history, parsed.value.question, notesForPrompt(parsed.value.chunks)),
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: parsed.value.spoken ? 512 : 768,
-        thinkingConfig: { thinkingLevel: "MINIMAL" },
-      },
-    },
-    request.signal,
-  );
+  const notes = notesForPrompt(parsed.value.chunks);
+  const maxOutputTokens = parsed.value.spoken ? 512 : 768;
 
-  if (!upstream.ok || !upstream.body) {
-    await upstream.body?.cancel().catch(() => undefined);
-    // Keep the student's friendly message, but pass Gemini's real status through
-    // (and in the body) so a bad key or model is diagnosable instead of a flat 502.
-    const status = upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502;
-    return Response.json(
-      { error: "The tutor could not answer just now.", code: "upstream_error", upstreamStatus: upstream.status },
-      { status },
+  // Gemini first. Its adapter already retries across Gemini models.
+  let geminiStatus = 502;
+  if (gemini) {
+    const upstream = await openGeminiStream(
+      gemini,
+      {
+        systemInstruction: { parts: [{ text: system }] },
+        contents: contentsFor(parsed.value.history, parsed.value.question, notes),
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens,
+          thinkingConfig: { thinkingLevel: "MINIMAL" },
+        },
+      },
+      request.signal,
     );
+    if (upstream.ok && upstream.body) {
+      return relayStream(upstream.body, (payload) => piece(payload as GeminiChunk));
+    }
+    geminiStatus = upstream.status;
+    await upstream.body?.cancel().catch(() => undefined);
   }
 
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      let buffer = "";
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue;
-            const data = trimmed.slice(5).trim();
-            if (!data || data === "[DONE]") continue;
-            try {
-              const text = piece(JSON.parse(data) as GeminiChunk);
-              if (text) controller.enqueue(encoder.encode(sse({ text })));
-            } catch {
-              // A broken event is skipped. The question and the notes stay out of the log.
-            }
-          }
-        }
-        controller.enqueue(encoder.encode(sse({ done: true })));
-      } catch {
-        controller.enqueue(encoder.encode(sse({ error: "The tutor stopped while answering." })));
-      } finally {
-        controller.close();
+  // Backup: Groq answers only when Gemini could not.
+  if (groq) {
+    try {
+      const backup = await openGroqStream(
+        groq,
+        {
+          messages: messagesForGroq(system, parsed.value.history, parsed.value.question, notes),
+          temperature: 0.2,
+          maxTokens: maxOutputTokens,
+        },
+        request.signal,
+      );
+      if (backup.ok && backup.body) {
+        return relayStream(backup.body, groqDeltaText);
       }
-    },
-    cancel() {
-      void reader.cancel();
-    },
-  });
+      await backup.body?.cancel().catch(() => undefined);
+    } catch {
+      // A failed backup falls through to the same error as a failed Gemini call.
+    }
+  }
 
-  return new Response(stream, {
-    headers: {
-      "content-type": "text/event-stream; charset=utf-8",
-      "cache-control": "no-cache, no-transform",
-      "x-accel-buffering": "no",
-    },
-  });
+  // Keep the student's friendly message, but pass Gemini's real status through
+  // (and in the body) so a bad key or model is diagnosable instead of a flat 502.
+  const status = geminiStatus >= 400 && geminiStatus < 600 ? geminiStatus : 502;
+  return Response.json(
+    { error: "The tutor could not answer just now.", code: "upstream_error", upstreamStatus: geminiStatus },
+    { status },
+  );
 }

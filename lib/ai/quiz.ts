@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { openGeminiContent, readGeminiSetup } from "@/lib/ai/adapter";
+import { openGeminiContent, readGeminiSetup, type GeminiSetup } from "@/lib/ai/adapter";
+import { groqChatText, readGroqSetup, type GroqSetup } from "@/lib/ai/groq";
 import { QUIZ_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { notesForPrompt } from "@/lib/tutor/request";
 import {
@@ -87,8 +88,12 @@ function askText(input: {
   return `${input.notes}\n\nSubject: ${input.subject}\n${topicLine}\nDifficulty: ${input.difficulty}\nWrite ${input.count} question${input.count === 1 ? "" : "s"}.${again}${styleBlock(input.style)}`;
 }
 
+/** The JSON shape spelled out for Groq, which has no schema mode. The Zod check below still guards it. */
+const GROQ_JSON_INSTRUCTION = `\n\nReturn JSON only, in exactly this shape: {"questions":[{"question":"...","options":["...","...","...","..."],"answerIndex":0,"explanation":"...","topic":"...","difficulty":"easy","sourceQuote":"..."}]}. difficulty is "easy" or "hard".`;
+
 async function once(
-  setup: { apiKey: string; model: string },
+  gemini: GeminiSetup | null,
+  groq: GroqSetup | null,
   input: {
     subject: string;
     topic: string;
@@ -101,30 +106,57 @@ async function once(
   },
   signal: AbortSignal | undefined,
 ) {
-  const upstream = await openGeminiContent(
-    setup,
-    {
-      systemInstruction: { parts: [{ text: QUIZ_SYSTEM_PROMPT }] },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: askText(input) }],
+  const maxOutputTokens = Math.min(8192, 500 * input.count + 256);
+  let text: string | null = null;
+
+  if (gemini) {
+    const upstream = await openGeminiContent(
+      gemini,
+      {
+        systemInstruction: { parts: [{ text: QUIZ_SYSTEM_PROMPT }] },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: askText(input) }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+          thinkingConfig: { thinkingLevel: "MINIMAL" },
         },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: Math.min(8192, 500 * input.count + 256),
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
-        thinkingConfig: { thinkingLevel: "MINIMAL" },
       },
-    },
-    signal,
-  );
-  if (!upstream.ok) return [];
+      signal,
+    );
+    if (upstream.ok) {
+      const payload = (await upstream.json()) as GeminiReply;
+      text = replyText(payload);
+    }
+  }
+
+  // Backup: Groq writes the quiz only when Gemini could not. The questions
+  // still pass the same Zod shape check and the same source-quote check.
+  if (text === null && groq) {
+    text = await groqChatText(
+      groq,
+      {
+        messages: [
+          { role: "system", content: QUIZ_SYSTEM_PROMPT },
+          { role: "user", content: `${askText(input)}${GROQ_JSON_INSTRUCTION}` },
+        ],
+        temperature: 0.2,
+        maxTokens: maxOutputTokens,
+        json: true,
+      },
+      signal,
+    );
+  }
+
+  if (text === null) return [];
   try {
-    const payload = (await upstream.json()) as GeminiReply;
-    const parsed = envelopeSchema.safeParse(readJson(replyText(payload)));
+    const parsed = envelopeSchema.safeParse(readJson(text));
     if (!parsed.success) return [];
     return keepQuestions(parsed.data.questions, input.chunks, input.difficulty);
   } catch {
@@ -151,8 +183,9 @@ export async function handleQuiz(body: unknown, signal?: AbortSignal) {
   if (!parsed.success) {
     return Response.json({ error: "Choose a subject and a number of questions." }, { status: 400 });
   }
-  const setup = readGeminiSetup();
-  if (!setup) {
+  const gemini = readGeminiSetup();
+  const groq = readGroqSetup();
+  if (!gemini && !groq) {
     return Response.json({ error: "Practice is not set up on this computer yet." }, { status: 503 });
   }
 
@@ -164,7 +197,8 @@ export async function handleQuiz(body: unknown, signal?: AbortSignal) {
     if (signal?.aborted) break;
     try {
       const batch = await once(
-        setup,
+        gemini,
+        groq,
         {
           subject: request.subject,
           topic: request.topic ?? "",

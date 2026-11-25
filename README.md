@@ -68,6 +68,8 @@ Copy `.env.example` to `.env.local` for local work. Values start empty.
 | --- | --- |
 | `GEMINI_API_KEY` | Free key from [Google AI Studio](https://aistudio.google.com/apikey). Server only. |
 | `GEMINI_MODEL` | Vision-capable Flash or Flash-Lite model id from the [model list](https://ai.google.dev/gemini-api/docs/models). A current fast name to paste is `gemini-3.5-flash-lite`. |
+| `GROQ_API_KEY` | Optional backup for the Tutor and Practice quizzes. Free key from [Groq](https://console.groq.com/keys). Server only. When every Gemini model fails, Groq answers instead. Handwriting reading and Exam mode always use Gemini. |
+| `GROQ_MODEL` | Groq model id. Optional; defaults to `llama-3.3-70b-versatile`. |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | OAuth 2.0 Web client id for Google Drive backup. Browser only. Optional until you use Drive. |
 
 If either Gemini value is missing, cloud reading stays off and the app falls back to on-device reading. On-device reading does not need a key. The English language file is served from this app and cached after the first read.
