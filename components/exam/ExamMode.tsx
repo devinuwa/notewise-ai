@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { PixelLoader } from "@/components/ui/PixelLoader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { getDb, type ExamProfile, type ExamSheet } from "@/lib/db";
+import { ConnectionError, postJson } from "@/lib/fetch-json";
 import { EXAM_PAGE_CAP, EXAM_TEXT_CAP, EXAM_YEAR_MAX, EXAM_YEAR_MIN, examBodies, isExamBody } from "@/lib/exam/bodies";
 import { pagesFromPdf } from "@/lib/exam/pdf";
 import { readExamSheet } from "@/lib/exam/read";
@@ -181,16 +182,12 @@ export function ExamMode({
     setWorking("analyse");
     try {
       const sliced = text.slice(0, EXAM_TEXT_CAP);
-      const response = await fetch("/api/llm", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          mode: "exam-profile",
-          examBody: paper.examBody,
-          subject: paper.subjectName,
-          year: paper.year,
-          text: sliced,
-        }),
+      const response = await postJson("/api/llm", {
+        mode: "exam-profile",
+        examBody: paper.examBody,
+        subject: paper.subjectName,
+        year: paper.year,
+        text: sliced,
       });
       const payload = (await response.json().catch(() => null)) as { error?: unknown; profile?: ExamProfile } | null;
       const draft = payload?.profile;
@@ -222,7 +219,13 @@ export function ExamMode({
         setNote("Only the first part of this paper was used, so the pattern is based on that.");
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The paper pattern could not be read.");
+      setError(
+        caught instanceof ConnectionError
+          ? "The connection dropped while reading this paper. Check your network, then try again."
+          : caught instanceof Error
+            ? caught.message
+            : "The paper pattern could not be read.",
+      );
     } finally {
       setWorking("");
       setCaption("");

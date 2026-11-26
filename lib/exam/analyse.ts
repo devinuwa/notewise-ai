@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { openGeminiContent, readGeminiSetup } from "@/lib/ai/adapter";
+import { openGeminiContent, readGeminiSetup, type GeminiSetup } from "@/lib/ai/adapter";
+import { groqChatText, readGroqSetup, type GroqSetup } from "@/lib/ai/groq";
 import { EXAM_PROFILE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { examBodies } from "@/lib/exam/bodies";
 import { fold } from "@/lib/practice/check";
@@ -149,11 +150,23 @@ function askText(input: { examBody: string; subject: string; year: number; text:
   return `Exam body: ${input.examBody}\nSubject: ${input.subject}\nYear: ${input.year}\n\nPAPER:\n${input.text}${extra}`;
 }
 
+/**
+ * The /api/llm route gets 60 seconds from the platform. All attempts share
+ * this smaller budget so the function always answers in time; before this,
+ * a row of slow Gemini models could run past the limit, the platform cut
+ * the connection, and the student saw a raw "Failed to fetch".
+ */
+const PROFILE_BUDGET_MS = 45_000;
+
+/** The JSON shape spelled out for Groq, which has no schema mode. The Zod and in-paper checks below still guard it. */
+const GROQ_JSON_INSTRUCTION = `\n\nReturn JSON only, in exactly this shape: {"optionCount":4,"averageQuestionLength":12,"questionTypes":{"recall":0,"calculation":0,"comprehension":0,"application":0},"topics":[{"topic":"...","count":1}],"difficultyMix":{"easy":0,"hard":0},"wordingPatterns":["..."],"samples":[{"question":"...","options":["...","...","...","..."]}]}. Copy every sample question and its options from the PAPER, word for word.`;
+
 async function once(
-  setup: { apiKey: string; model: string },
+  setup: GeminiSetup,
   input: { examBody: string; subject: string; year: number; text: string },
   reminder: string,
   signal: AbortSignal | undefined,
+  deadlineMs: number,
 ) {
   const upstream = await openGeminiContent(
     setup,
@@ -169,11 +182,40 @@ async function once(
       },
     },
     signal,
+    deadlineMs,
   );
   if (!upstream.ok) return null;
   try {
     const payload = (await upstream.json()) as GeminiReply;
     return grounded(readJson(replyText(payload)), input.text);
+  } catch {
+    return null;
+  }
+}
+
+/** Backup: Groq reads the pattern when Gemini could not. Same checks apply. */
+async function onceGroq(
+  setup: GroqSetup,
+  input: { examBody: string; subject: string; year: number; text: string },
+  reminder: string,
+  signal: AbortSignal | undefined,
+) {
+  const text = await groqChatText(
+    setup,
+    {
+      messages: [
+        { role: "system", content: EXAM_PROFILE_SYSTEM_PROMPT },
+        { role: "user", content: `${askText(input, reminder)}${GROQ_JSON_INSTRUCTION}` },
+      ],
+      temperature: 0.2,
+      maxTokens: 4096,
+      json: true,
+    },
+    signal,
+  );
+  if (text === null) return null;
+  try {
+    return grounded(readJson(text), input.text);
   } catch {
     return null;
   }
@@ -185,21 +227,39 @@ export async function handleExamProfile(body: unknown, signal?: AbortSignal) {
   if (!parsed.success) {
     return Response.json({ error: "Add the exam body, subject, year, and the reviewed text." }, { status: 400 });
   }
-  const setup = readGeminiSetup();
-  if (!setup) {
+  const gemini = readGeminiSetup();
+  const groq = readGroqSetup();
+  if (!gemini && !groq) {
     return Response.json({ error: "Exam mode is not set up on this computer yet." }, { status: 503 });
   }
 
   const request = parsed.data;
+  const startedAt = Date.now();
+  const remaining = () => PROFILE_BUDGET_MS - (Date.now() - startedAt);
   let failed = false;
   let reminder = "";
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (signal?.aborted) break;
+  const REMINDER = "Copy each sample question from the PAPER. A previous sample was not found in the paper, so it was rejected.";
+
+  if (gemini) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (signal?.aborted || remaining() < 3_000) break;
+      try {
+        const profile = await once(gemini, request, reminder, signal, remaining());
+        failed = false;
+        if (profile) return Response.json({ profile });
+        reminder = REMINDER;
+      } catch {
+        failed = true;
+      }
+    }
+  }
+
+  // Backup: Groq is fast, so it still fits after a slow Gemini cascade.
+  if (groq && !signal?.aborted && remaining() > 1_000) {
     try {
-      const profile = await once(setup, request, reminder, signal);
-      failed = false;
+      const profile = await onceGroq(groq, request, reminder, signal);
       if (profile) return Response.json({ profile });
-      reminder = "Copy each sample question from the PAPER. A previous sample was not found in the paper, so it was rejected.";
+      failed = false;
     } catch {
       failed = true;
     }

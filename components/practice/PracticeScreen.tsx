@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/ui/StateBlock
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import type { AttemptAnswer, QuizQuestion } from "@/lib/db";
 import { shownPages, shownSubjects, shownTopics } from "@/lib/demo";
+import { ConnectionError, postJson } from "@/lib/fetch-json";
 import { OFFLINE_QUIZ, onlineServerSnapshot, onlineSnapshot, subscribeOnline } from "@/lib/offline";
 import { isNotebookError, useNotebook } from "@/lib/use-notebook";
 import {
@@ -94,18 +95,14 @@ export function PracticeScreen() {
       }
       const topic = extra ? undefined : subjectTopics.find((item) => item.id === topicId)?.name;
       const usedDifficulty = extra ? "mixed" : difficulty;
-      const response = await fetch("/api/llm", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          mode: "quiz",
-          count: made,
-          difficulty: usedDifficulty,
-          subject: subject.name,
-          topic,
-          chunks: packed.chunks,
-          style: extra?.style,
-        }),
+      const response = await postJson("/api/llm", {
+        mode: "quiz",
+        count: made,
+        difficulty: usedDifficulty,
+        subject: subject.name,
+        topic,
+        chunks: packed.chunks,
+        style: extra?.style,
       });
       const payload = (await response.json().catch(() => null)) as {
         error?: unknown;
@@ -136,7 +133,13 @@ export function PracticeScreen() {
       setPhase("play");
     } catch (caught) {
       setPhase("setup");
-      setError(caught instanceof Error ? caught.message : "The quiz could not be written just now.");
+      setError(
+        caught instanceof ConnectionError
+          ? "The connection dropped while writing your quiz. Check your network, then try again."
+          : caught instanceof Error
+            ? caught.message
+            : "The quiz could not be written just now.",
+      );
     }
   }
 

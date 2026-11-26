@@ -28,8 +28,9 @@ const FALLBACK_STATUSES = new Set([400, 404, 429, 500, 503]);
 /** One attempt never waits longer than this, so a hung model cannot eat the whole request budget. */
 const ATTEMPT_TIMEOUT_MS = 20_000;
 
-function attemptSignal(signal?: AbortSignal): AbortSignal {
-  const timeout = AbortSignal.timeout(ATTEMPT_TIMEOUT_MS);
+function attemptSignal(signal: AbortSignal | undefined, budgetMs?: number): AbortSignal {
+  const cap = budgetMs === undefined ? ATTEMPT_TIMEOUT_MS : Math.max(1, Math.min(ATTEMPT_TIMEOUT_MS, budgetMs));
+  const timeout = AbortSignal.timeout(cap);
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
@@ -54,11 +55,23 @@ async function callGemini(
   method: "generateContent" | "streamGenerateContent?alt=sse",
   body: unknown,
   signal?: AbortSignal,
+  deadlineMs?: number,
 ): Promise<Response> {
+  // Callers on a serverless time limit pass a deadline so the whole model
+  // cascade fits inside it. Without one, a row of hung models could run past
+  // the function's limit, the platform would cut the connection, and the
+  // student would see a raw "Failed to fetch" instead of an answer or a
+  // proper error.
+  const startedAt = Date.now();
+  const remaining = () => (deadlineMs === undefined ? undefined : deadlineMs - (Date.now() - startedAt));
   let last: Response | null = null;
   for (const model of candidateModels(setup)) {
     let payload = body;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const budget = remaining();
+      if (budget !== undefined && budget <= 250) {
+        return last ?? Response.json({ error: "Gemini could not be reached in time." }, { status: 502 });
+      }
       let response: Response;
       try {
         response = await fetch(
@@ -70,7 +83,7 @@ async function callGemini(
               "x-goog-api-key": setup.apiKey,
             },
             body: JSON.stringify(payload),
-            signal: attemptSignal(signal),
+            signal: attemptSignal(signal, budget),
           },
         );
       } catch (caught) {
@@ -107,10 +120,10 @@ async function callGemini(
 }
 
 /** One JSON answer. Practice uses this so the quiz can be checked before it is shown. */
-export function openGeminiContent(setup: GeminiSetup, body: unknown, signal?: AbortSignal) {
-  return callGemini(setup, "generateContent", body, signal);
+export function openGeminiContent(setup: GeminiSetup, body: unknown, signal?: AbortSignal, deadlineMs?: number) {
+  return callGemini(setup, "generateContent", body, signal, deadlineMs);
 }
 
-export function openGeminiStream(setup: GeminiSetup, body: unknown, signal?: AbortSignal) {
-  return callGemini(setup, "streamGenerateContent?alt=sse", body, signal);
+export function openGeminiStream(setup: GeminiSetup, body: unknown, signal?: AbortSignal, deadlineMs?: number) {
+  return callGemini(setup, "streamGenerateContent?alt=sse", body, signal, deadlineMs);
 }

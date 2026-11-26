@@ -30,6 +30,34 @@ function reply(status: number) {
   return new Response(status === 200 ? "{}" : "error", { status });
 }
 
+test("a deadline stops the cascade instead of letting hung models run past it", async () => {
+  const calls: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+    calls.push(String(url));
+    // A hung model: never answers until the attempt's own signal aborts it.
+    return await new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal;
+      if (!signal) return;
+      if (signal.aborted) {
+        reject(new Error("aborted"));
+        return;
+      }
+      signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+    });
+  }) as typeof fetch;
+  try {
+    const started = Date.now();
+    const response = await openGeminiContent(setup, { contents: [] }, undefined, 300);
+    const elapsed = Date.now() - started;
+    assert.equal(response.status, 502);
+    assert.ok(elapsed < 3_000, `cascade should stop near the deadline, took ${elapsed}ms`);
+    assert.equal(calls.length, 1, "only the first model should be tried before the deadline stops the cascade");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("a retired configured model falls back to a current model", async () => {
   const stub = stubFetch((call) => (call.url.includes("gemini-old-model") ? reply(404) : reply(200)));
   try {

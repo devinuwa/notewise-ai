@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/db.upgrade.test.ts lib/tutor/languages.test.ts lib/ocr/tesseract-flags.test.ts lib/ai/adapter.test.ts lib/ai/groq.test.ts"
+    "test": "tsx --test lib/db.upgrade.test.ts lib/tutor/languages.test.ts lib/ocr/tesseract-flags.test.ts lib/ai/adapter.test.ts lib/ai/groq.test.ts lib/exam/analyse.test.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",

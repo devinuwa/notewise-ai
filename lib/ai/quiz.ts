@@ -91,6 +91,9 @@ function askText(input: {
 /** The JSON shape spelled out for Groq, which has no schema mode. The Zod check below still guards it. */
 const GROQ_JSON_INSTRUCTION = `\n\nReturn JSON only, in exactly this shape: {"questions":[{"question":"...","options":["...","...","...","..."],"answerIndex":0,"explanation":"...","topic":"...","difficulty":"easy","sourceQuote":"..."}]}. difficulty is "easy" or "hard".`;
 
+/** The /api/llm route gets 60 seconds from the platform; all quiz attempts share this smaller budget. */
+const QUIZ_BUDGET_MS = 45_000;
+
 async function once(
   gemini: GeminiSetup | null,
   groq: GroqSetup | null,
@@ -105,6 +108,7 @@ async function once(
     style?: ExamStyle;
   },
   signal: AbortSignal | undefined,
+  deadlineMs?: number,
 ) {
   const maxOutputTokens = Math.min(8192, 500 * input.count + 256);
   let text: string | null = null;
@@ -129,6 +133,7 @@ async function once(
         },
       },
       signal,
+      deadlineMs,
     );
     if (upstream.ok) {
       const payload = (await upstream.json()) as GeminiReply;
@@ -191,10 +196,12 @@ export async function handleQuiz(body: unknown, signal?: AbortSignal) {
 
   const request = parsed.data;
   const notes = notesForPrompt(request.chunks);
+  const startedAt = Date.now();
+  const remaining = () => QUIZ_BUDGET_MS - (Date.now() - startedAt);
   let accepted: KeptQuestion[] = [];
   let failed = false;
   for (let attempt = 0; attempt < 3 && accepted.length < request.count; attempt += 1) {
-    if (signal?.aborted) break;
+    if (signal?.aborted || remaining() < 3_000) break;
     try {
       const batch = await once(
         gemini,
@@ -210,6 +217,7 @@ export async function handleQuiz(body: unknown, signal?: AbortSignal) {
           style: request.style,
         },
         signal,
+        remaining(),
       );
       accepted = merge(accepted, batch, request.count);
       failed = false;
